@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { connectDB } from '@/lib/db';
-import { Content } from '@/models/Content';
+import connectDB from '@/lib/db';
+import Content from '@/models/Content';
 import { PublishJob } from '@/models/PublishJob';
 
 // Upstash Redis client for simple queue operations

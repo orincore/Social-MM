@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/db';
-import { Content } from '@/models/Content';
+import connectDB from '@/lib/db';
+import Content from '@/models/Content';
 import { PublishJob } from '@/models/PublishJob';
 import { InstagramAccount } from '@/models/InstagramAccount';
 import { InstagramAPI } from '@/lib/instagram-api';

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
-import { connectDB } from '@/lib/db';
+import connectDB from '@/lib/db';
 import { InstagramAccount } from '@/models/InstagramAccount';
-import { Content } from '@/models/Content';
+import Content from '@/models/Content';
 import { PublishJob } from '@/models/PublishJob';
 import { InstagramAPI } from '@/lib/instagram-api';
 import { r2Storage } from '@/lib/r2-storage';

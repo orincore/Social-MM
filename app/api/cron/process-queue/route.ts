@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/db';
-import { Content } from '@/models/Content';
+import connectDB from '@/lib/db';
+import Content from '@/models/Content';
 import { PublishJob } from '@/models/PublishJob';
 import { InstagramAccount } from '@/models/InstagramAccount';
 import { InstagramAPI } from '@/lib/instagram-api';
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       
       for (let i = 0; i < maxJobs; i++) {
         const jobKey = keys[i];
+        let jobData: any = null;
         
         try {
           // Get job data from Redis
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
             continue; // Job was already processed or expired
           }
 
-          const jobData = JSON.parse(jobDataStr);
+          jobData = JSON.parse(jobDataStr);
           console.log('Processing Redis job:', jobData);
 
           // Check if the job is due (with 1 minute buffer)
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
           console.error(`Failed to process Redis job ${jobKey}:`, jobError);
           errorCount++;
 
-          const contentId = jobData.contentId;
+          const contentId = jobData?.contentId;
           if (contentId) {
             // Update content status to failed
             await Content.findByIdAndUpdate(contentId, {
@@ -183,15 +184,17 @@ export async function POST(request: NextRequest) {
             });
 
             // Create failed publish job record
+            const jobUserEmail = jobData?.userEmail || 'unknown';
+
             await PublishJob.create({
-              userEmail: jobData.userEmail,
+              userEmail: jobUserEmail,
               contentId,
               platform: 'instagram',
               status: 'failed',
               error: jobError.message,
               metadata: {
-                mediaType: jobData.mediaType,
-                isReel: jobData.isReel,
+                mediaType: jobData?.mediaType,
+                isReel: jobData?.isReel,
                 processedBy: 'redis-queue',
                 source,
                 redisJobKey: jobKey
