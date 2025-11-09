@@ -61,6 +61,61 @@ export class R2Storage {
     }
   }
 
+  // Download file from R2 and return as Blob
+  async getFile(key: string): Promise<Blob> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      const resp: any = await this.client.send(command);
+      const body = resp.Body;
+      const contentType: string = resp.ContentType || 'application/octet-stream';
+
+      // Convert stream/body to Uint8Array
+      const bytes = await this.streamToBytes(body);
+
+      // Create a standalone ArrayBuffer (force copy) to avoid SharedArrayBuffer typing issues
+      const arrayBuffer: ArrayBuffer = new Uint8Array(bytes).buffer;
+
+      // Node >= 18 has global Blob
+      return new Blob([arrayBuffer], { type: contentType });
+    } catch (error) {
+      console.error('Error downloading from R2:', error);
+      throw error;
+    }
+  }
+
+  // Helper: convert R2 stream to Uint8Array
+  private async streamToBytes(stream: any): Promise<Uint8Array> {
+    // If already Uint8Array
+    if (stream instanceof Uint8Array) {
+      return stream;
+    }
+
+    return new Promise((resolve, reject) => {
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      // For Node.js Readable streams
+      stream.on('data', (chunk: Buffer | Uint8Array) => {
+        const u8 = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+        chunks.push(u8);
+        total += u8.byteLength;
+      });
+      stream.on('end', () => {
+        const out = new Uint8Array(total);
+        let offset = 0;
+        for (const c of chunks) {
+          out.set(c, offset);
+          offset += c.byteLength;
+        }
+        resolve(out);
+      });
+      stream.on('error', (err: any) => reject(err));
+    });
+  }
+
   // Delete file from R2
   async deleteFile(key: string): Promise<void> {
     try {

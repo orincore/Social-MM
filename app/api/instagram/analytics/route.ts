@@ -30,11 +30,6 @@ async function getConnectedInstagram(access_token: string) {
           page_access_token: page.access_token
         };
       }
-
-    // If account-level impressions not available, but we gathered from posts, set it
-    if (insights.impressions === null && totalImpressionsFromPosts > 0) {
-      insights.impressions = totalImpressionsFromPosts;
-    }
     }
   }
 

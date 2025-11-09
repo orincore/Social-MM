@@ -43,10 +43,16 @@ export async function GET(request: NextRequest) {
       ...(customEndDate && { endDate: customEndDate }),
     });
 
+    // Compute internal base URL for same-origin API calls.
+    // - In production (Vercel), prefer HTTPS with the incoming host.
+    // - In local dev, use http://127.0.0.1:3000 to avoid SSL version mismatch from HTTPS proxies.
+    const host = request.headers.get('host') || 'localhost:3000';
+    const internalBase = process.env.VERCEL ? `https://${host}` : 'http://127.0.0.1:3000';
+
     // Fetch Instagram analytics if connected
     if (instagramAccount) {
       try {
-        const igResponse = await fetch(`${request.nextUrl.origin}/api/instagram/analytics?${queryParams}`, {
+        const igResponse = await fetch(`${internalBase}/api/instagram/analytics?${queryParams}`, {
           headers: {
             'Cookie': request.headers.get('Cookie') || '',
           },
@@ -67,7 +73,7 @@ export async function GET(request: NextRequest) {
     // Fetch YouTube analytics if connected
     if (youtubeAccount) {
       try {
-        const ytResponse = await fetch(`${request.nextUrl.origin}/api/youtube/analytics?${queryParams}`, {
+        const ytResponse = await fetch(`${internalBase}/api/youtube/analytics?${queryParams}`, {
           headers: {
             'Cookie': request.headers.get('Cookie') || '',
           },
