@@ -93,10 +93,10 @@ async function fetchCombinedAnalytics(
     youtube: youtubeAccount ? youtubeAccount.channelTitle : 'None'
   });
 
-  let instagramData = null;
-  let instagramError = null;
-  let youtubeData = null;
-  let youtubeError = null;
+  let instagramData: any = null;
+  let instagramError: string | null = null;
+  let youtubeData: any = null;
+  let youtubeError: string | null = null;
 
   // Build query params for individual platform APIs
   const queryParams = new URLSearchParams({

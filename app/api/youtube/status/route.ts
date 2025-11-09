@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import connectDB from '@/lib/db';
@@ -8,7 +8,7 @@ import Content from '@/models/Content';
 import { PublishJob } from '@/models/PublishJob';
 import SocialAccount from '@/models/SocialAccount';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession({ ...authOptions });
     
@@ -62,7 +62,7 @@ export async function GET() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession({ ...authOptions });
     if (!session?.user?.email) {

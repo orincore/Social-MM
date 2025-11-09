@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
           staleMinutes: 10, // Consider stale after 10 minutes
         },
         async () => {
-          return await fetchCombinedAnalytics(session.user!.email!, period, customStartDate, customEndDate);
+          return await fetchCombinedAnalytics(request, session.user!.email!, period, customStartDate, customEndDate);
         }
       );
 
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Force refresh - fetch fresh data
-    const freshData = await fetchCombinedAnalytics(session.user.email, period, customStartDate, customEndDate);
+    const freshData = await fetchCombinedAnalytics(request, session.user.email, period, customStartDate, customEndDate);
     
     console.log('Combined Analytics returned successfully');
     return NextResponse.json({ 
@@ -63,19 +63,23 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Combined Analytics error:', error);
-    return NextResponse.json({ 
-      error: 'Failed to fetch combined analytics',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    throw error;
   }
 }
 
-async function fetchCombinedAnalytics(userEmail: string, period: string, customStartDate: string | null, customEndDate: string | null) {
-    
+async function fetchCombinedAnalytics(
+  request: NextRequest,
+  userEmail: string,
+  period: string,
+  customStartDate: string | null,
+  customEndDate: string | null
+) {
+
+  try {
     await connectDB();
-    const user = await User.findOne({ email: session.user.email });
+    const user = await User.findOne({ email: userEmail });
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      throw new Error('User not found');
     }
 
     // Check platform connections directly from database
@@ -144,13 +148,7 @@ async function fetchCombinedAnalytics(userEmail: string, period: string, customS
 
     // If both platforms failed, return error
     if (!instagramData && !youtubeData) {
-      return NextResponse.json({
-        error: 'No platform data available',
-        details: {
-          instagram: instagramError,
-          youtube: youtubeError,
-        }
-      }, { status: 404 });
+      throw new Error('No platform data available');
     }
 
     // Normalize and combine data
@@ -276,14 +274,11 @@ async function fetchCombinedAnalytics(userEmail: string, period: string, customS
     };
 
     console.log('Combined Analytics returned successfully');
-    return NextResponse.json({ success: true, data: combinedAnalytics });
+    return combinedAnalytics;
     
   } catch (error) {
     console.error('Combined Analytics error:', error);
-    return NextResponse.json({ 
-      error: 'Failed to fetch combined analytics',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    throw error;
   }
 }
 

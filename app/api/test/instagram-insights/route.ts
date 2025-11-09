@@ -26,7 +26,7 @@ export async function GET() {
 
     console.log('Testing Instagram insights for:', instagramAccount.username);
 
-    const results = {};
+    const results: { [key: string]: any } = {};
     const baseUrl = 'https://graph.facebook.com/v21.0';
     const accessToken = instagramAccount.accessToken;
     const igUserId = instagramAccount.instagramId;
