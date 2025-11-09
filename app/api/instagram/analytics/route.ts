@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
+import { InstagramAccount } from '@/models/InstagramAccount';
 
 // Function to get Instagram account dynamically by checking all Facebook pages
 async function getConnectedInstagram(access_token: string) {
@@ -27,6 +30,11 @@ async function getConnectedInstagram(access_token: string) {
           page_access_token: page.access_token
         };
       }
+
+    // If account-level impressions not available, but we gathered from posts, set it
+    if (insights.impressions === null && totalImpressionsFromPosts > 0) {
+      insights.impressions = totalImpressionsFromPosts;
+    }
     }
   }
 
@@ -47,6 +55,27 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || 'month';
     const customStartDate = searchParams.get('startDate');
     const customEndDate = searchParams.get('endDate');
+
+    await connectDB();
+
+    let user = await User.findOne({ email: session.user.email });
+    if (!user && session.user.name) {
+      user = await User.findOne({ name: session.user.name, email: { $regex: /@facebook\.local$/ } });
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const instagramAccount = await InstagramAccount.findOne({ userId: user._id, isActive: true });
+
+    if (!instagramAccount) {
+      return NextResponse.json({ error: 'Instagram account not connected' }, { status: 404 });
+    }
+
+    if (instagramAccount.tokenExpiresAt && new Date() > instagramAccount.tokenExpiresAt) {
+      return NextResponse.json({ error: 'Instagram token expired' }, { status: 401 });
+    }
     
     // Calculate date range based on period
     const now = new Date();
@@ -96,15 +125,15 @@ export async function GET(request: NextRequest) {
     
     console.log(`Filtering data for period: ${period}, from ${startDate.toISOString()} to ${now.toISOString()}`);
     
-    // For now, we need to get the access token from somewhere
-    // This is a temporary solution - normally we'd get this from the database
-    // You'll need to provide a valid access token here
-    const TEMP_ACCESS_TOKEN = "EAATxV9N3FTcBP4pMKXnBMs5ewDblyKDHWwlo21hnW9fDZCZAdvjgfBl7GmufiBrC6UvXjbjA42q37X4jZBcsNUMMrsII1Javakew1xzPQOpCsHJuJABCqZB2nGtMnnP6mecbXPR9z7tzN8UlGgKn2InA2P2ukTtdi7TCLDdS6zLVYOuoc6o9i0fAersDqL3eMuwua8I0YdVnCZBlp3mEZBdHZAaCsUPbL9LgSJHK9sh05B1I5mftbbTUsJZAm46hIW7dRoyJnQizUuGZCZCa5PwGslWJJvY05B8jcezfF06rR9S8OYtVhWlgZDZD";
+    // Prefer stored IG business account and page access token
+    let ig_user_id = instagramAccount.instagramId;
+    let page_access_token = instagramAccount.accessToken;
+
+    if (!ig_user_id || !page_access_token) {
+      return NextResponse.json({ error: 'Instagram account incomplete. Please reconnect.' }, { status: 400 });
+    }
     
-    // Get the correct Instagram account dynamically
-    const { ig_user_id, page_access_token } = await getConnectedInstagram(TEMP_ACCESS_TOKEN);
-    
-    console.log('Detected Instagram account:', { ig_user_id });
+    console.log('Analytics using stored Instagram account:', { ig_user_id });
 
     const baseUrl = 'https://graph.facebook.com/v21.0';
     
@@ -158,7 +187,7 @@ export async function GET(request: NextRequest) {
     // Get account insights using correct metrics
     let insights = {
       reach: 0,
-      impressions: 0, // Add impressions field that frontend expects
+      impressions: null as number | null,
       follower_count: accountInfo.followers_count,
       website_clicks: 0,
       profile_views: 0,
@@ -208,7 +237,7 @@ export async function GET(request: NextRequest) {
     for (const periodType of insightsPeriods) {
       try {
         // Call A: Standard metrics (time_series type)
-        const standardMetrics = ['reach']; // impressions not available for Instagram Business accounts
+        const standardMetrics = ['reach'];
         const standardResponse = await fetch(
           `${baseUrl}/${ig_user_id}/insights?metric=${standardMetrics.join(',')}&period=${periodType}&access_token=${page_access_token}`
         );
@@ -229,12 +258,12 @@ export async function GET(request: NextRequest) {
           
           standardData.data?.forEach((metric: any) => {
             const value = metric.values[0]?.value || 0;
+            // Prefer the broader aggregation for the UI counters
             if (periodType === 'days_28') {
               insights[metric.name as keyof typeof insights] = value;
-              // Set impressions as estimated value (reach * 1.2) since it's not available for IG Business
-              if (metric.name === 'reach') {
-                insights.impressions = Math.round(value * 1.2);
-              }
+            } else if (!insights[metric.name as keyof typeof insights]) {
+              // fill if not yet set from broader period
+              insights[metric.name as keyof typeof insights] = value;
             }
             
             if (timeSeriesData[metric.name as keyof typeof timeSeriesData]) {
@@ -344,6 +373,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get REAL insights for each post using correct Meta API
+    let totalImpressionsFromPosts = 0;
+    let totalReachFromPosts = 0;
     for (const media of allMedia.slice(0, 50)) { // Analyze 50 posts to get more real data
       try {
         console.log(`Fetching insights for post ${media.id}...`);
@@ -407,8 +438,14 @@ export async function GET(request: NextRequest) {
           }
           
           // ONLY use real data - no calculations or estimates
-          const realImpressions = insights.impressions || null;
-          const realReach = insights.reach || null;
+          const realImpressions = (insightsObj => (typeof insightsObj.impressions === 'number' ? insightsObj.impressions : null))(insights as any);
+          const realReach = (insightsObj => (typeof insightsObj.reach === 'number' ? insightsObj.reach : null))(insights as any);
+          if (typeof insights.impressions === 'number') {
+            totalImpressionsFromPosts += insights.impressions;
+          }
+          if (typeof insights.reach === 'number') {
+            totalReachFromPosts += insights.reach;
+          }
           const realSaved = insights.saved || null;
           
           // Calculate engagement using real likes + comments (from post data)

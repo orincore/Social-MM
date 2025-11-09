@@ -39,7 +39,7 @@ export default function InstagramPage() {
   const [connected, setConnected] = useState(false);
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'media' | 'post'>('overview');
-  const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'days_28'>('week');
+  const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | '3months' | '6months' | 'year' | 'days_28'>('year');
 
   useEffect(() => {
     checkConnection();
@@ -344,6 +344,10 @@ export default function InstagramPage() {
                 >
                   <option value="day">Last Day</option>
                   <option value="week">Last Week</option>
+                  <option value="month">Last 30 Days</option>
+                  <option value="3months">Last 3 Months</option>
+                  <option value="6months">Last 6 Months</option>
+                  <option value="year">Last Year</option>
                   <option value="days_28">Last 28 Days</option>
                 </select>
                 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Zap, Plus, Users, TrendingUp, User, LogOut, Instagram, Sparkles, Building2, Eye, Heart, MessageCircle, Share2, Activity, ArrowUp, ArrowDown } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Zap, Plus, Users, TrendingUp, User, LogOut, Instagram, Sparkles, Building2, Eye, Heart, MessageCircle, Share2, Activity, ArrowUp, ArrowDown, Play } from 'lucide-react';
 import { usePhoneCheck } from '@/lib/usePhoneCheck';
 import { useState, useEffect } from 'react';
 
@@ -10,16 +10,41 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const { isChecking } = usePhoneCheck();
   const [analytics, setAnalytics] = useState<any>(null);
+  const [youtubeAnalytics, setYoutubeAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [instagramConnected, setInstagramConnected] = useState(false);
+  const [youtubeConnected, setYoutubeConnected] = useState(false);
 
-  // Fetch Instagram analytics data
+  // Fetch combined analytics data
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const response = await fetch('/api/instagram/analytics?period=days_28');
-        if (response.ok) {
-          const data = await response.json();
-          setAnalytics(data.data);
+        // Check Instagram connection
+        const igStatusResponse = await fetch('/api/instagram/status');
+        const igStatus = await igStatusResponse.json();
+        setInstagramConnected(igStatus.connected);
+
+        // Check YouTube connection
+        const ytStatusResponse = await fetch('/api/youtube/status');
+        const ytStatus = await ytStatusResponse.json();
+        setYoutubeConnected(ytStatus.connected);
+
+        // Fetch Instagram analytics if connected
+        if (igStatus.connected) {
+          const igResponse = await fetch('/api/instagram/analytics?period=days_28');
+          if (igResponse.ok) {
+            const igData = await igResponse.json();
+            setAnalytics(igData.data);
+          }
+        }
+
+        // Fetch YouTube analytics if connected
+        if (ytStatus.connected) {
+          const ytResponse = await fetch('/api/youtube/analytics?period=month');
+          if (ytResponse.ok) {
+            const ytData = await ytResponse.json();
+            setYoutubeAnalytics(ytData.data);
+          }
         }
       } catch (error) {
         console.error('Error fetching analytics:', error);
@@ -104,81 +129,100 @@ export default function DashboardPage() {
         </div>
 
         {/* Real-time Analytics Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-gradient-to-r from-pink-500 to-rose-500 p-6 rounded-xl shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-pink-100 text-sm font-medium">Instagram Followers</p>
-                <p className="text-3xl font-bold">
+                <div className="text-3xl font-bold">
                   {loading ? (
                     <div className="animate-pulse">
                       <div className="h-8 bg-pink-300 rounded w-20"></div>
                     </div>
-                  ) : formatNumber(analytics?.account?.followers_count)}
-                </p>
+                  ) : instagramConnected ? formatNumber(analytics?.account?.followers_count) : '—'}
+                </div>
                 <div className="flex items-center mt-2">
-                  <ArrowUp className="h-4 w-4 mr-1" />
-                  <span className="text-sm">+2.4% this month</span>
+                  {instagramConnected ? (
+                    <>
+                      <ArrowUp className="h-4 w-4 mr-1" />
+                      <span className="text-sm">+2.4% this month</span>
+                    </>
+                  ) : (
+                    <Link href="/dashboard/instagram" className="text-sm underline">
+                      Connect Instagram
+                    </Link>
+                  )}
                 </div>
               </div>
               <Instagram className="h-12 w-12 text-pink-200" />
             </div>
           </div>
           
+          <div className="bg-gradient-to-r from-red-500 to-red-600 p-6 rounded-xl shadow-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-100 text-sm font-medium">YouTube Subscribers</p>
+                <div className="text-3xl font-bold">
+                  {loading ? (
+                    <div className="animate-pulse">
+                      <div className="h-8 bg-red-300 rounded w-20"></div>
+                    </div>
+                  ) : youtubeConnected ? formatNumber(youtubeAnalytics?.channel?.subscriberCount) : '—'}
+                </div>
+                <div className="flex items-center mt-2">
+                  {youtubeConnected ? (
+                    <>
+                      <ArrowUp className="h-4 w-4 mr-1" />
+                      <span className="text-sm">+{formatNumber(youtubeAnalytics?.analytics?.subscribersGained || 0)} this month</span>
+                    </>
+                  ) : (
+                    <Link href="/dashboard/youtube" className="text-sm underline">
+                      Connect YouTube
+                    </Link>
+                  )}
+                </div>
+              </div>
+              <Play className="h-12 w-12 text-red-200" />
+            </div>
+          </div>
+          
           <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-xl shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm font-medium">Total Reach</p>
-                <p className="text-3xl font-bold">
+                <p className="text-blue-100 text-sm font-medium">Total Views</p>
+                <div className="text-3xl font-bold">
                   {loading ? (
                     <div className="animate-pulse">
                       <div className="h-8 bg-blue-300 rounded w-20"></div>
                     </div>
-                  ) : formatNumber(analytics?.insights?.reach)}
-                </p>
+                  ) : formatNumber(((analytics?.insights?.reach || analytics?.account?.reach) || 0) + (youtubeAnalytics?.analytics?.views || 0))}
+                </div>
                 <div className="flex items-center mt-2">
                   <ArrowUp className="h-4 w-4 mr-1" />
-                  <span className="text-sm">+15.3% this week</span>
+                  <span className="text-sm">IG + YT combined</span>
                 </div>
               </div>
               <Eye className="h-12 w-12 text-blue-200" />
             </div>
           </div>
           
-          <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 rounded-xl shadow-lg text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">Profile Views</p>
-                <p className="text-3xl font-bold">
-                  {loading ? (
-                    <div className="animate-pulse">
-                      <div className="h-8 bg-green-300 rounded w-20"></div>
-                    </div>
-                  ) : formatNumber(analytics?.insights?.profile_views)}
-                </p>
-                <div className="flex items-center mt-2">
-                  <ArrowUp className="h-4 w-4 mr-1" />
-                  <span className="text-sm">+8.7% today</span>
-                </div>
-              </div>
-              <Activity className="h-12 w-12 text-green-200" />
-            </div>
-          </div>
-          
           <div className="bg-gradient-to-r from-purple-500 to-indigo-500 p-6 rounded-xl shadow-lg text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm font-medium">Engagement Rate</p>
-                <p className="text-3xl font-bold">
+                <p className="text-purple-100 text-sm font-medium">Avg Engagement</p>
+                <div className="text-3xl font-bold">
                   {loading ? (
                     <div className="animate-pulse">
                       <div className="h-8 bg-purple-300 rounded w-20"></div>
                     </div>
-                  ) : (analytics?.insights?.engagement_rate || 0).toFixed(1)}%
-                </p>
+                  ) : (
+                    (((analytics?.insights?.engagement_rate || analytics?.account?.engagement_rate) || 0) + (youtubeAnalytics?.analytics?.engagementRate || 0)) / 
+                    ((instagramConnected ? 1 : 0) + (youtubeConnected ? 1 : 0) || 1)
+                  ).toFixed(1)}%
+                </div>
                 <div className="flex items-center mt-2">
-                  <ArrowUp className="h-4 w-4 mr-1" />
-                  <span className="text-sm">+0.3% this week</span>
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  <span className="text-sm">Cross-platform</span>
                 </div>
               </div>
               <TrendingUp className="h-12 w-12 text-purple-200" />
@@ -186,15 +230,63 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Platform Connection Prompts */}
+        {(!instagramConnected || !youtubeConnected) && (
+          <div className="mb-8">
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">🚀 Connect Your Social Platforms</h3>
+              <p className="text-gray-600 mb-6">
+                Get the most out of Social MM by connecting all your social media accounts for unified analytics and scheduling.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {!instagramConnected && (
+                  <Link href="/dashboard/instagram" className="flex items-center p-4 bg-white border border-pink-200 rounded-lg hover:border-pink-300 transition-colors">
+                    <Instagram className="h-8 w-8 text-pink-500 mr-3" />
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Connect Instagram</h4>
+                      <p className="text-sm text-gray-600">View analytics and schedule posts</p>
+                    </div>
+                  </Link>
+                )}
+                {!youtubeConnected && (
+                  <Link href="/dashboard/youtube" className="flex items-center p-4 bg-white border border-red-200 rounded-lg hover:border-red-300 transition-colors">
+                    <Play className="h-8 w-8 text-red-500 mr-3" />
+                    <div>
+                      <h4 className="font-semibold text-gray-900">Connect YouTube</h4>
+                      <p className="text-sm text-gray-600">Upload videos and track performance</p>
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Visual Analytics Section */}
-        {analytics && (
+        {(analytics || youtubeAnalytics) && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">Instagram Analytics Overview</h3>
-              <Link href="/dashboard/analytics" className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors flex items-center">
-                <Instagram className="h-4 w-4 mr-2" />
-                View Detailed Analytics
-              </Link>
+              <h3 className="text-2xl font-bold text-gray-900">Analytics Overview</h3>
+              <div className="flex space-x-3">
+                {analytics && (
+                  <Link href="/dashboard/instagram" className="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition-colors flex items-center">
+                    <Instagram className="h-4 w-4 mr-2" />
+                    Instagram
+                  </Link>
+                )}
+                {youtubeAnalytics && (
+                  <Link href="/dashboard/youtube" className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors flex items-center">
+                    <Play className="h-4 w-4 mr-2" />
+                    YouTube
+                  </Link>
+                )}
+                {analytics && youtubeAnalytics && (
+                  <Link href="/dashboard/analytics/combined" className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors flex items-center">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Combined
+                  </Link>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -211,7 +303,7 @@ export default function DashboardPage() {
                       <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
                         <div className="bg-blue-500 h-2 rounded-full" style={{width: '75%'}}></div>
                       </div>
-                      <span className="font-semibold">{formatNumber(analytics.insights?.website_clicks)}</span>
+                      <span className="font-semibold">{formatNumber(analytics?.insights?.website_clicks || 0)}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
@@ -220,7 +312,7 @@ export default function DashboardPage() {
                       <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
                         <div className="bg-green-500 h-2 rounded-full" style={{width: '60%'}}></div>
                       </div>
-                      <span className="font-semibold">{formatNumber(analytics.insights?.accounts_engaged)}</span>
+                      <span className="font-semibold">{formatNumber(analytics?.insights?.accounts_engaged || 0)}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
@@ -229,7 +321,7 @@ export default function DashboardPage() {
                       <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
                         <div className="bg-purple-500 h-2 rounded-full" style={{width: '85%'}}></div>
                       </div>
-                      <span className="font-semibold">{formatNumber(analytics.insights?.profile_views)}</span>
+                      <span className="font-semibold">{formatNumber(analytics?.insights?.profile_views || 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -242,7 +334,7 @@ export default function DashboardPage() {
                   Content Performance
                 </h4>
                 <div className="space-y-4">
-                  {analytics.charts_data?.engagement_by_type?.map((item: any, index: number) => (
+                  {analytics?.charts_data?.engagement_by_type?.map((item: any, index: number) => (
                     <div key={index} className="flex items-center justify-between">
                       <span className="text-gray-600 capitalize">{item.type.toLowerCase()}s</span>
                       <div className="flex items-center">
@@ -252,7 +344,7 @@ export default function DashboardPage() {
                               item.type === 'IMAGE' ? 'bg-pink-500' : 
                               item.type === 'VIDEO' ? 'bg-blue-500' : 'bg-green-500'
                             }`} 
-                            style={{width: `${(item.engagement / Math.max(...analytics.charts_data.engagement_by_type.map((i: any) => i.engagement))) * 100}%`}}
+                            style={{width: `${(item.engagement / Math.max(...(analytics?.charts_data?.engagement_by_type?.map((i: any) => i.engagement) || [1]))) * 100}%`}}
                           ></div>
                         </div>
                         <span className="font-semibold">{formatNumber(item.engagement)}</span>
@@ -270,7 +362,7 @@ export default function DashboardPage() {
                 Recent Posts Performance
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {analytics.recent_media?.slice(0, 5).map((post: any, index: number) => (
+                {analytics?.recent_media?.slice(0, 5).map((post: any, index: number) => (
                   <div key={index} className="relative group cursor-pointer">
                     <img
                       src={post.thumbnail_url || post.media_url}
@@ -385,12 +477,39 @@ export default function DashboardPage() {
               <div className="flex items-center mb-4">
                 <Instagram className="h-8 w-8 text-pink-500" />
                 <h3 className="ml-3 text-lg font-semibold text-gray-900">Instagram</h3>
+                {instagramConnected && (
+                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Connected</span>
+                )}
               </div>
               <p className="text-gray-600 mb-4">
-                Manage your Instagram posts, stories, reels, and analytics.
+                {instagramConnected 
+                  ? "Manage your Instagram posts, stories, reels, and analytics."
+                  : "Connect your Instagram account to view analytics and schedule posts."
+                }
               </p>
               <div className="text-pink-500 group-hover:text-pink-600 font-medium">
-                Open Instagram →
+                {instagramConnected ? "Open Instagram →" : "Connect Instagram →"}
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/dashboard/youtube" className="group">
+            <div className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center mb-4">
+                <Play className="h-8 w-8 text-red-500" />
+                <h3 className="ml-3 text-lg font-semibold text-gray-900">YouTube</h3>
+                {youtubeConnected && (
+                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Connected</span>
+                )}
+              </div>
+              <p className="text-gray-600 mb-4">
+                {youtubeConnected 
+                  ? "Upload videos, track performance, and manage your YouTube channel."
+                  : "Connect your YouTube channel to upload videos and view analytics."
+                }
+              </p>
+              <div className="text-red-500 group-hover:text-red-600 font-medium">
+                {youtubeConnected ? "Open YouTube →" : "Connect YouTube →"}
               </div>
             </div>
           </Link>
