@@ -17,10 +17,11 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') as 'day' | 'week' | 'days_28' || 'week';
 
     await connectDB();
-    const user = await User.findOne({ 
-      email: session.user.email,
-      // Only Google/GitHub users, not Facebook OAuth users
-      email: { $not: { $regex: /@facebook\.local$/ } }
+    const user = await User.findOne({
+      $and: [
+        { email: session.user.email },
+        { email: { $not: /@facebook\.local$/ } }
+      ]
     });
     if (!user) {
       return NextResponse.json({ error: 'User not found - Please login with Google' }, { status: 404 });

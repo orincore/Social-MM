@@ -40,10 +40,11 @@ const handler = NextAuth({
     async session({ session, token }) {
       if (session.user?.email) {
         await dbConnect();
-        const dbUser = await User.findOne({ 
-          email: session.user.email,
-          // Only Google/GitHub users, not Facebook OAuth users
-          email: { $not: { $regex: /@facebook\.local$/ } }
+        const dbUser = await User.findOne({
+          $and: [
+            { email: session.user.email },
+            { email: { $not: /@facebook\.local$/ } }
+          ]
         });
         
         if (dbUser) {

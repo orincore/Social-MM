@@ -188,7 +188,7 @@ export default function ProfilePage() {
                         alt={session.user.name || 'Profile'} 
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          console.log('Image failed to load:', session.user.image);
+                          console.log('Image failed to load:', session?.user?.image);
                           e.currentTarget.style.display = 'none';
                           e.currentTarget.nextElementSibling?.classList.remove('hidden');
                         }}

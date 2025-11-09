@@ -13,9 +13,11 @@ export async function POST() {
 
     await connectDB();
     // Only look for users with Google auth (not Facebook local emails)
-    const user = await User.findOne({ 
-      email: session.user.email,
-      email: { $not: { $regex: /@facebook\.local$/ } }
+    const user = await User.findOne({
+      $and: [
+        { email: session.user.email },
+        { email: { $not: /@facebook\.local$/ } }
+      ]
     });
     if (!user) {
       return NextResponse.json({ error: 'User not found - Please login with Google' }, { status: 404 });

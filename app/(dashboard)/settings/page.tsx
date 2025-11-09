@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Settings as SettingsIcon, User, Bell, CreditCard, Shield, Instagram, Facebook, Youtube, Plus, Check, X, Save } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, CreditCard, Shield, Instagram, Facebook, Youtube, Plus, Check, X, Save, Crown } from 'lucide-react';
 
 const mockConnectedAccounts = [
   {

@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useSession, signIn } from 'next-auth/react';
+import type { Session } from 'next-auth';
 import { Calendar, BarChart3, Settings, Zap, Users, Clock, LogOut } from 'lucide-react';
 import ClientOnly from '@/components/client-only';
 
@@ -48,6 +49,9 @@ export default function HomePage() {
     }
   };
 
+  const typedSession = session as Session | null;
+  const user = typedSession?.user;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -77,11 +81,11 @@ export default function HomePage() {
                     </Link>
                     <div className="flex items-center space-x-3">
                       <img 
-                        src={session.user?.image || ''} 
-                        alt={session.user?.name || ''} 
+                        src={user?.image || ''} 
+                        alt={user?.name || ''} 
                         className="w-8 h-8 rounded-full"
                       />
-                      <span className="text-sm font-medium text-gray-700">{session.user?.name}</span>
+                      <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
                     </div>
                   </>
                 ) : (
