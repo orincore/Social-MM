@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { InstagramAccount } from '@/models/InstagramAccount';
@@ -37,14 +38,17 @@ async function getConnectedInstagram(access_token: string) {
 }
 
 export async function GET(request: NextRequest) {
-  console.log('Analytics API called');
+  console.log('Instagram Analytics API called');
   
   try {
     // Check session
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
+      console.log('Instagram Analytics: No session or email');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    console.log('Instagram Analytics: Session found for', session.user.email);
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'month';
@@ -63,14 +67,18 @@ export async function GET(request: NextRequest) {
     }
 
     const instagramAccount = await InstagramAccount.findOne({ userId: user._id, isActive: true });
+    console.log('Instagram Analytics: Account lookup result:', instagramAccount ? { id: instagramAccount._id, username: instagramAccount.username } : 'Not found');
 
     if (!instagramAccount) {
       return NextResponse.json({ error: 'Instagram account not connected' }, { status: 404 });
     }
 
     if (instagramAccount.tokenExpiresAt && new Date() > instagramAccount.tokenExpiresAt) {
+      console.log('Instagram Analytics: Token expired');
       return NextResponse.json({ error: 'Instagram token expired' }, { status: 401 });
     }
+    
+    console.log('Instagram Analytics: Starting analytics fetch for', instagramAccount.username);
     
     // Calculate date range based on period
     const now = new Date();
@@ -724,7 +732,13 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    console.log('Analytics returned successfully');
+    console.log('Instagram Analytics: Data compiled successfully');
+    console.log('Instagram Analytics: Key metrics:', {
+      reach: analytics.insights?.reach,
+      impressions: analytics.insights?.impressions,
+      followers: analytics.account?.followers_count,
+      posts: analytics.account?.media_count
+    });
     return NextResponse.json({ success: true, data: analytics });
     
   } catch (error) {

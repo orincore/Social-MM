@@ -98,7 +98,6 @@ const YouTubeAccountSchema = new Schema<IYouTubeAccount>({
 
 // Indexes for performance
 YouTubeAccountSchema.index({ userId: 1, isActive: 1 });
-YouTubeAccountSchema.index({ channelId: 1 });
 YouTubeAccountSchema.index({ tokenExpiresAt: 1 });
 
 // Update the updatedAt field on save

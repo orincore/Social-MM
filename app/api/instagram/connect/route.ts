@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { InstagramAccount } from '@/models/InstagramAccount';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -15,9 +16,9 @@ export async function GET(request: NextRequest) {
     const instagramAuthUrl = new URL('https://www.facebook.com/v18.0/dialog/oauth');
     instagramAuthUrl.searchParams.set('client_id', process.env.INSTAGRAM_CLIENT_ID!);
     instagramAuthUrl.searchParams.set('redirect_uri', `${process.env.NEXTAUTH_URL}/api/instagram/callback`);
-    instagramAuthUrl.searchParams.set('scope', 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_messages,instagram_business_manage_insights,pages_read_engagement,pages_show_list');
+    instagramAuthUrl.searchParams.set('scope', 'pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish,business_management');
     instagramAuthUrl.searchParams.set('response_type', 'code');
-    instagramAuthUrl.searchParams.set('state', session.user.email); // Use email as state for security
+    instagramAuthUrl.searchParams.set('state', Date.now().toString()); // Use timestamp as state for security
 
     return NextResponse.json({ 
       success: true, 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

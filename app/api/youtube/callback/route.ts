@@ -13,21 +13,21 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get('error');
 
     if (error) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=youtube_auth_failed`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=youtube_auth_failed`);
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=missing_params`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=missing_params`);
     }
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=unauthorized`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=unauthorized`);
     }
 
     // Validate state matches user email
     if (state !== session.user.email) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=invalid_state`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=invalid_state`);
     }
 
     // Exchange code for access token
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       console.error('Token exchange failed:', await tokenResponse.text());
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=token_exchange_failed`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=token_exchange_failed`);
     }
 
     const tokenData = await tokenResponse.json();
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     if (!refresh_token) {
       console.error('No refresh token received - user may have already authorized');
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=no_refresh_token`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=no_refresh_token`);
     }
 
     // Get channel information using YouTube Data API v3
@@ -66,13 +66,13 @@ export async function GET(request: NextRequest) {
 
     if (!channelResponse.ok) {
       console.error('Channel fetch failed:', await channelResponse.text());
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=channel_fetch_failed`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=channel_fetch_failed`);
     }
 
     const channelData = await channelResponse.json();
     
     if (!channelData.items || channelData.items.length === 0) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=no_channel_found`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=no_channel_found`);
     }
 
     const channel = channelData.items[0];
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     await connectDB();
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=user_not_found`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=user_not_found`);
     }
 
     // Check if YouTube account already exists
@@ -144,9 +144,9 @@ export async function GET(request: NextRequest) {
       await newAccount.save();
     }
 
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?success=youtube_connected`);
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?success=youtube_connected`);
   } catch (error) {
     console.error('YouTube callback error:', error);
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/youtube?error=callback_failed`);
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=callback_failed`);
   }
 }

@@ -76,8 +76,24 @@ export async function DELETE() {
     }
 
     // Delete YouTube account and all related data
+    await YouTubeAccount.deleteMany({ userId: user._id });
+
+    // Invalidate analytics cache
+    try {
+      const cacheResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/cache/invalidate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': request.headers.get('Cookie') || '',
+        },
+        body: JSON.stringify({ platform: 'youtube' }),
+      });
+      console.log('YouTube cache invalidation:', cacheResponse.ok ? 'Success' : 'Failed');
+    } catch (error) {
+      console.log('YouTube cache invalidation failed:', error);
+    }
+
     await Promise.all([
-      YouTubeAccount.deleteMany({ userId: user._id }),
       Content.deleteMany({ userId: user._id, platform: 'youtube' }),
       PublishJob.deleteMany({ userId: user._id.toString(), platform: 'youtube' }),
       SocialAccount.deleteMany({ userId: user._id, provider: 'youtube' }),

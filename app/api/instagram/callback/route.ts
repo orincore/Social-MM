@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { InstagramAccount } from '@/models/InstagramAccount';
@@ -12,16 +13,16 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get('error');
 
     if (error) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=instagram_auth_failed`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=instagram_auth_failed`);
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=missing_params`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=missing_params`);
     }
 
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=unauthorized`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=unauthorized`);
     }
 
     // Validate state is a reasonable timestamp (within last 10 minutes)
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     const tenMinutesAgo = now - (10 * 60 * 1000);
     
     if (isNaN(stateTimestamp) || stateTimestamp < tenMinutesAgo || stateTimestamp > now) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=invalid_state`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=invalid_state`);
     }
 
     // Exchange code for access token (Facebook OAuth)
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       console.error('Token exchange failed:', await tokenResponse.text());
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=token_exchange_failed`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=token_exchange_failed`);
     }
 
     const tokenData = await tokenResponse.json();
@@ -108,29 +109,54 @@ export async function GET(request: NextRequest) {
 
     if (!selectedPage || !igAccountData?.instagram_business_account) {
       console.error('No page with Instagram business account found');
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=no_instagram_business_account`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=no_instagram_business_account`);
     }
 
     const instagramAccountId = igAccountData.instagram_business_account.id;
 
-    // Get Instagram profile information
+    // Get Instagram profile information (account_type may not be available for all accounts)
     const profileResponse = await fetch(
       `https://graph.facebook.com/v18.0/${instagramAccountId}?fields=id,username,media_count,followers_count,follows_count,profile_picture_url,biography,website&access_token=${pageAccessToken}`
     );
 
     if (!profileResponse.ok) {
       console.error('Profile fetch failed:', await profileResponse.text());
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=profile_fetch_failed`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=profile_fetch_failed`);
     }
 
     const profileData = await profileResponse.json();
+    console.log('Instagram profile data fetched:', profileData);
+
+    // Try to fetch account type separately (optional)
+    let accountType = 'BUSINESS'; // Default fallback
+    try {
+      const accountTypeResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${instagramAccountId}?fields=account_type&access_token=${pageAccessToken}`
+      );
+      
+      if (accountTypeResponse.ok) {
+        const accountTypeData = await accountTypeResponse.json();
+        accountType = accountTypeData.account_type || 'BUSINESS';
+        console.log('Instagram account type detected:', accountType);
+      } else {
+        console.log('Account type not available, using default: BUSINESS');
+      }
+    } catch (error) {
+      console.log('Could not fetch account type, using default: BUSINESS');
+    }
+
+    // Add account type to profile data
+    profileData.account_type = accountType;
 
     // Save to database
     await connectDB();
     const user = await User.findOne({ email: session.user.email });
     if (!user) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=user_not_found`);
+      console.error('User not found for email:', session.user.email);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=user_not_found`);
     }
+    
+    console.log('User found:', { id: user._id, email: user.email });
 
     // Check if Instagram account already exists
     const existingAccount = await InstagramAccount.findOne({ 
@@ -141,11 +167,12 @@ export async function GET(request: NextRequest) {
     });
 
     if (existingAccount) {
+      console.log('Updating existing Instagram account:', existingAccount._id);
       // Update existing account
       existingAccount.accessToken = pageAccessToken; // Use page access token for Instagram Business
-      existingAccount.tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+      existingAccount.tokenExpiresAt = new Date(Date.now() + (expiresIn || 3600) * 1000);
       existingAccount.username = profileData.username;
-      existingAccount.accountType = 'BUSINESS'; // Instagram Business account connected via Facebook page
+      existingAccount.accountType = profileData.account_type || 'BUSINESS'; // Use real account type from Instagram API
       existingAccount.profilePictureUrl = profileData.profile_picture_url;
       existingAccount.followersCount = profileData.followers_count || 0;
       existingAccount.followingCount = profileData.follows_count || 0;
@@ -155,15 +182,17 @@ export async function GET(request: NextRequest) {
       existingAccount.isActive = true;
       existingAccount.lastSyncAt = new Date();
       await existingAccount.save();
+      console.log('Instagram account updated successfully');
     } else {
+      console.log('Creating new Instagram account');
       // Create new account
       const newAccount = new InstagramAccount({
         userId: user._id,
         instagramId: profileData.id,
         username: profileData.username,
-        accountType: 'BUSINESS', // Instagram Business account connected via Facebook page
+        accountType: profileData.account_type || 'BUSINESS', // Use real account type from Instagram API
         accessToken: pageAccessToken, // Use page access token for Instagram Business
-        tokenExpiresAt: new Date(Date.now() + expiresIn * 1000),
+        tokenExpiresAt: new Date(Date.now() + (expiresIn || 3600) * 1000),
         profilePictureUrl: profileData.profile_picture_url,
         followersCount: profileData.followers_count || 0,
         followingCount: profileData.follows_count || 0,
@@ -174,11 +203,12 @@ export async function GET(request: NextRequest) {
         lastSyncAt: new Date(),
       });
       await newAccount.save();
+      console.log('New Instagram account created successfully:', newAccount._id);
     }
 
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?success=instagram_connected`);
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?success=instagram_connected`);
   } catch (error) {
     console.error('Instagram callback error:', error);
-    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard/instagram?error=callback_failed`);
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=callback_failed`);
   }
 }
