@@ -25,7 +25,15 @@ export async function POST(request: NextRequest) {
       'remote.instagramCreationId': { $exists: true }
     }).limit(20); // Process max 20 at a time
 
-    console.log(`Found ${processingPosts.length} Instagram posts to poll`);
+    console.log(`Instagram polling: Found ${processingPosts.length} posts to poll`);
+    
+    if (processingPosts.length > 0) {
+      console.log('Processing posts:', processingPosts.map(p => ({
+        id: p._id,
+        creationId: p.remote?.instagramCreationId,
+        status: p.status
+      })));
+    }
 
     let completedCount = 0;
     let stillProcessingCount = 0;

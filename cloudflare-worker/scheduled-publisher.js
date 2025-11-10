@@ -47,6 +47,10 @@ export default {
         if (instagramPollResponse.ok) {
           const pollResult = await instagramPollResponse.json();
           console.log('Instagram polling result:', pollResult);
+        } else {
+          console.error('Instagram polling failed with status:', instagramPollResponse.status);
+          const errorText = await instagramPollResponse.text();
+          console.error('Instagram polling error:', errorText);
         }
       } catch (pollError) {
         console.error('Instagram polling failed:', pollError);
