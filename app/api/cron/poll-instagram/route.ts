@@ -114,8 +114,15 @@ export async function POST(request: NextRequest) {
           console.log(`✅ Published Instagram post ${post._id}`);
 
         } else if (statusData.status_code === 'ERROR' || statusData.status_code === 'EXPIRED') {
-          // Failed
-          const errorMessage = statusData.status || 'Media processing failed';
+          // Failed - get detailed error info
+          let errorMessage = statusData.status || 'Media processing failed';
+          
+          // Error 2207076 = video format issue - provide helpful message
+          if (errorMessage.includes('2207076')) {
+            errorMessage = 'Video format incompatible with Instagram Reels. Please ensure: MP4 format, vertical (9:16), max 60s, H.264 codec. Try re-uploading or use a different video.';
+          }
+          
+          console.error(`Instagram error for post ${post._id}:`, errorMessage);
           
           await Content.findByIdAndUpdate(post._id, {
             status: 'failed',

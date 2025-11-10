@@ -30,7 +30,7 @@ async function resolveInstagramVideoUrl(videoUrl: string): Promise<string> {
   }
 
   const { r2Storage } = await import('@/lib/r2-storage');
-  return r2Storage.getSignedDownloadUrl(r2Key, 900); // give Instagram 15 minutes to download
+  return r2Storage.getSignedDownloadUrl(r2Key, 3600); // give Instagram 1 hour to download
 }
 
 export interface InstagramAccount {
@@ -324,7 +324,10 @@ export class InstagramAPI {
       console.log('Creating Instagram media container...', {
         mediaType: isReel ? 'REELS' : 'VIDEO',
         shareToFeed,
-        thumbOffset: normalizedThumbOffset
+        thumbOffset: normalizedThumbOffset,
+        originalUrl: videoUrl,
+        resolvedUrl: resolvedVideoUrl,
+        urlType: resolvedVideoUrl.includes('X-Amz-') ? 'signed' : 'public'
       });
 
       // Create media container
