@@ -2,8 +2,13 @@
 
 ## Current Issues on Production
 
+### ❌ ENOENT Error: mkdir '/var/task/public/uploads'
+**Cause:** localStorage module was trying to create directories on Vercel's read-only filesystem
+**Fixed:** Removed localStorage import and fallback code - now uses R2 only
+
 ### ❌ 500 Error on `/api/upload`
 **Cause:** R2 environment variables are missing or incorrect in production
+**Action Required:** Set R2 env vars on Vercel (see below)
 
 ### ❌ 404 Error on `/dashboard/settings`
 **Fixed:** Created settings page at `app/dashboard/settings/page.tsx`

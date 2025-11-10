@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { r2Storage } from '@/lib/r2-storage';
-import { localStorage } from '@/lib/local-storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,79 +78,39 @@ export async function POST(request: NextRequest) {
                           process.env.R2_ACCESS_KEY_ID && 
                           process.env.R2_SECRET_ACCESS_KEY;
 
+    // Check if R2 is configured
+    if (!isR2Configured) {
+      console.error('Upload: R2 not configured');
+      return NextResponse.json({
+        error: 'R2 storage is not configured. Please use direct upload method.',
+        details: 'Missing R2 configuration'
+      }, { status: 500 });
+    }
+
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    let fileUrl: string;
-    let fileKey: string;
-
-    // Try R2 first, fallback to local storage if it fails
-    if (isR2Configured) {
-      try {
-        console.log('Upload: Using R2 storage...');
-        fileKey = r2Storage.generateFileKey(userId, file.name, fileType);
-        
-        // Sanitize metadata values for R2 headers (remove invalid characters)
-        const sanitizeHeaderValue = (value: string) => {
-          return value.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
-        };
-        
-        fileUrl = await r2Storage.uploadFile(
-          fileKey,
-          buffer,
-          file.type,
-          {
-            originalname: sanitizeHeaderValue(file.name), // Changed key name and sanitized value
-            uploadedby: sanitizeHeaderValue(session.user.email),
-            uploadedat: new Date().toISOString().replace(/[^\w\-]/g, '_'), // Sanitize ISO string
-            filesize: file.size.toString()
-          }
-        );
-        console.log('Upload: R2 upload successful, URL:', fileUrl);
-      } catch (r2Error: any) {
-        console.log('Upload: R2 failed, falling back to local storage:', r2Error?.message || 'Unknown error');
-        // Fallback to local storage
-        fileKey = localStorage.generateFileKey(userId, file.name, fileType);
-        
-        const sanitizeHeaderValue = (value: string) => {
-          return value.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
-        };
-        
-        fileUrl = await localStorage.uploadFile(
-          fileKey,
-          buffer,
-          file.type,
-          {
-            originalname: sanitizeHeaderValue(file.name),
-            uploadedby: sanitizeHeaderValue(session.user.email),
-            uploadedat: new Date().toISOString().replace(/[^\w\-]/g, '_'),
-            filesize: file.size.toString()
-          }
-        );
-        console.log('Upload: Local storage fallback successful, URL:', fileUrl);
+    // Upload to R2
+    console.log('Upload: Using R2 storage...');
+    const fileKey = r2Storage.generateFileKey(userId, file.name, fileType);
+    
+    // Sanitize metadata values for R2 headers (remove invalid characters)
+    const sanitizeHeaderValue = (value: string) => {
+      return value.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
+    };
+    
+    const fileUrl = await r2Storage.uploadFile(
+      fileKey,
+      buffer,
+      file.type,
+      {
+        originalname: sanitizeHeaderValue(file.name),
+        uploadedby: sanitizeHeaderValue(session.user.email),
+        uploadedat: new Date().toISOString().replace(/[^\w\-]/g, '_'),
+        filesize: file.size.toString()
       }
-    } else {
-      console.log('Upload: R2 not configured, using local storage...');
-      fileKey = localStorage.generateFileKey(userId, file.name, fileType);
-      
-      // Use same sanitization for consistency
-      const sanitizeHeaderValue = (value: string) => {
-        return value.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
-      };
-      
-      fileUrl = await localStorage.uploadFile(
-        fileKey,
-        buffer,
-        file.type,
-        {
-          originalname: sanitizeHeaderValue(file.name),
-          uploadedby: sanitizeHeaderValue(session.user.email),
-          uploadedat: new Date().toISOString().replace(/[^\w\-]/g, '_'),
-          filesize: file.size.toString()
-        }
-      );
-      console.log('Upload: Local storage upload successful, URL:', fileUrl);
-    }
+    );
+    console.log('Upload: R2 upload successful, URL:', fileUrl);
 
     return NextResponse.json({
       success: true,
