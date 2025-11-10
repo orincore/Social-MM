@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Calendar, Image, Video, Type, Hash, Send, Clock, CheckCircle, AlertCircle, Upload, X, Instagram, Youtube } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { uploadToR2 } from '@/lib/client-upload';
 
 interface ConnectedAccount {
   platform: string;
@@ -136,28 +137,16 @@ export default function CreateContent() {
     setLoading(true);
     
     try {
-      // Upload media if present
+      // Upload media if present using direct R2 upload (bypasses serverless size limits)
       let mediaUrl = '';
       if (mediaFile) {
-        const formData = new FormData();
-        formData.append('file', mediaFile);
+        const uploadResult = await uploadToR2(mediaFile);
         
-        // Auto-detect and include file type
-        const fileType = mediaFile.type.startsWith('video/') ? 'video' : 'image';
-        formData.append('type', fileType);
-        
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json();
-          mediaUrl = uploadData.fileUrl;
-        } else {
-          const errorData = await uploadResponse.json();
-          throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Upload failed');
         }
+        
+        mediaUrl = uploadResult.fileUrl;
       }
       
       // Create content for each selected platform
