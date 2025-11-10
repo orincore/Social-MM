@@ -30,6 +30,28 @@ export default {
       const result = await response.json();
       console.log('Scheduled posts processing result:', result);
 
+      // Also poll Instagram posts that are processing
+      try {
+        const instagramPollResponse = await fetch(`${env.NEXTJS_APP_URL}/api/cron/poll-instagram`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${env.CRON_SECRET}`,
+          },
+          body: JSON.stringify({
+            currentTime,
+            source: 'cloudflare-worker'
+          })
+        });
+
+        if (instagramPollResponse.ok) {
+          const pollResult = await instagramPollResponse.json();
+          console.log('Instagram polling result:', pollResult);
+        }
+      } catch (pollError) {
+        console.error('Instagram polling failed:', pollError);
+      }
+
       // If there are posts to process, also trigger the Upstash queue processing
       if (result.processedCount > 0 && env.UPSTASH_QUEUE_URL) {
         try {

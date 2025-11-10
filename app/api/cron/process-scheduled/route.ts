@@ -73,12 +73,28 @@ export async function POST(request: NextRequest) {
             thumbOffset: post.instagramOptions?.thumbOffset
           });
           
-          publishedPostId = await instagramAPI.postVideo(post.mediaUrl, post.caption, {
+          // For Instagram, only create the container - don't wait for processing
+          // This prevents Vercel timeout (Instagram processing takes 30-60s)
+          const creationId = await instagramAPI.createVideoContainer(post.mediaUrl, post.caption, {
             isReel: true,
             instagramAccountId: user.instagram.instagramId,
             shareToFeed: post.instagramOptions?.shareToFeed ?? true,
             thumbOffset: post.instagramOptions?.thumbOffset ?? 0
           });
+          
+          // Mark as processing and store the creation ID
+          await Content.findByIdAndUpdate(post._id, {
+            status: 'processing',
+            'remote.instagramCreationId': creationId,
+            updatedAt: new Date()
+          });
+          
+          console.log(`Instagram container created: ${creationId}. Will poll for completion separately.`);
+          
+          // Skip the rest of the processing for Instagram
+          // A separate polling mechanism will complete the publish
+          processedCount++;
+          continue;
         } else if (post.platform === 'youtube') {
           // Get user with YouTube tokens
           const user = await User.findById(post.userId);

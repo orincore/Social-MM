@@ -261,6 +261,114 @@ export class InstagramAPI {
     }
   }
 
+  // Create Instagram video container without waiting for processing
+  // Returns the creation ID for later polling
+  async createVideoContainer(
+    videoUrl: string,
+    caption: string,
+    options: {
+      isReel?: boolean;
+      instagramAccountId?: string;
+      shareToFeed?: boolean;
+      thumbOffset?: number;
+    } = {}
+  ): Promise<string> {
+    try {
+      const {
+        isReel = true,
+        instagramAccountId: providedInstagramAccountId,
+        shareToFeed = true,
+        thumbOffset = 0,
+      } = options;
+
+      let instagramAccountId = providedInstagramAccountId;
+
+      const rawThumbOffset = Number(thumbOffset);
+      const normalizedThumbOffset = Number.isFinite(rawThumbOffset)
+        ? Math.max(0, Math.min(60, Math.floor(rawThumbOffset)))
+        : 0;
+
+      // Get the Instagram Business Account ID if not provided
+      if (!instagramAccountId) {
+        const accountResponse = await fetch(
+          `${FACEBOOK_API_BASE}/me/accounts?access_token=${this.accessToken}`
+        );
+        
+        if (!accountResponse.ok) {
+          throw new Error(`Facebook API error: ${accountResponse.status}`);
+        }
+        
+        const accountData = await accountResponse.json();
+        const pages = accountData.data;
+        
+        if (!pages || pages.length === 0) {
+          throw new Error('No Facebook pages found');
+        }
+        
+        const page = pages[0];
+        const igAccountResponse = await fetch(
+          `${FACEBOOK_API_BASE}/${page.id}?fields=instagram_business_account&access_token=${this.accessToken}`
+        );
+        
+        const igAccountData = await igAccountResponse.json();
+        instagramAccountId = igAccountData.instagram_business_account?.id;
+        
+        if (!instagramAccountId) {
+          throw new Error('No Instagram Business Account found');
+        }
+      }
+
+      // Resolve video URL (use signed URL if public URL fails)
+      const resolvedVideoUrl = await resolveInstagramVideoUrl(videoUrl);
+      
+      console.log('Creating Instagram media container...', {
+        mediaType: isReel ? 'REELS' : 'VIDEO',
+        shareToFeed,
+        thumbOffset: normalizedThumbOffset
+      });
+
+      // Create media container
+      const params: Record<string, string> = {
+        video_url: resolvedVideoUrl,
+        caption: caption,
+        media_type: isReel ? 'REELS' : 'VIDEO',
+        share_to_feed: shareToFeed.toString(),
+        access_token: this.accessToken,
+      };
+
+      if (normalizedThumbOffset > 0) {
+        params.thumb_offset = normalizedThumbOffset.toString();
+      }
+
+      const createResponse = await fetch(
+        `${FACEBOOK_API_BASE}/${instagramAccountId}/media`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(params),
+        }
+      );
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        throw new Error(`Instagram API error: ${createResponse.status} - ${errorText}`);
+      }
+
+      const createData = await createResponse.json();
+      const creationId = createData.id;
+
+      if (!creationId) {
+        throw new Error('Failed to create Instagram media container');
+      }
+
+      console.log('Instagram container created:', creationId);
+      return creationId;
+    } catch (error) {
+      console.error('Error creating Instagram container:', error);
+      throw error;
+    }
+  }
+
   // Post Video/Reel to Instagram (requires Instagram Business Account)
   // Default to Reel since we're only posting Reels and Shorts
   async postVideo(
