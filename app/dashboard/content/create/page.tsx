@@ -156,8 +156,8 @@ export default function CreateContent() {
           mediaUrl,
           scheduledAt: scheduleType === 'later' && scheduledDate && scheduledTime 
             ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
-            : undefined,
-          status: scheduleType === 'now' ? 'publishing' : 'scheduled'
+            : new Date(Date.now() + 10000).toISOString(), // Publish in 10 seconds for "now"
+          status: 'scheduled' // Always use scheduled status - let queue handle publishing
         };
 
         // Platform-specific fields
@@ -191,7 +191,12 @@ export default function CreateContent() {
       
       await Promise.all(contentPromises);
       
-      // Reset form for next content creation
+      const message = scheduleType === 'now' 
+        ? 'Content queued for publishing! It will be published in a few seconds.'
+        : 'Content scheduled successfully!';
+      
+      alert(message);
+      router.push('/dashboard');
       setMediaFile(null);
       setMediaPreview('');
       setCaption('');

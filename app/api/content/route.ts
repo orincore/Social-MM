@@ -100,64 +100,9 @@ export async function POST(req: NextRequest) {
       await publishJob.save();
     }
 
-    // If publishing now, trigger immediate publish
-    if (status === 'publishing') {
-      // Queue for immediate publishing
-      try {
-        // Use localhost for internal API calls to avoid SSL issues
-        const baseUrl = process.env.NODE_ENV === 'production' 
-          ? process.env.NEXTAUTH_URL 
-          : 'http://localhost:3000';
-          
-        // Prepare publish data based on platform
-        let publishData: any = { contentId: content._id.toString() };
-        
-        if (platform === 'youtube') {
-          // For YouTube, we need title, description, and r2Key
-          publishData = {
-            contentId: content._id.toString(),
-            title: content.title || 'Untitled Video',
-            description: content.description || content.caption || 'No description',
-            tags: content.tags || [],
-            r2Key: mediaUrl ? mediaUrl.replace(/^https?:\/\/[^\/]+\//, '') : '', // Extract r2Key from mediaUrl
-            privacyStatus: 'public'
-          };
-        } else if (platform === 'instagram') {
-          // For Instagram, we need different data
-          publishData = {
-            contentId: content._id.toString(),
-            caption: content.caption,
-            mediaUrl: mediaUrl,
-            shareToFeed: content.instagramOptions?.shareToFeed ?? true,
-            thumbOffset: content.instagramOptions?.thumbOffset ?? 0
-          };
-        }
-
-        console.log('Content: Publishing with data:', publishData);
-
-        const publishResponse = await fetch(`${baseUrl}/api/${platform}/publish`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cookie': req.headers.get('Cookie') || '',
-          },
-          body: JSON.stringify(publishData)
-        });
-
-        if (publishResponse.ok) {
-          content.status = 'published';
-        } else {
-          content.status = 'failed';
-          content.publishError = await publishResponse.text();
-        }
-        await content.save();
-      } catch (error) {
-        console.error('Error publishing content immediately:', error);
-        content.status = 'failed';
-        content.publishError = error instanceof Error ? error.message : 'Unknown error';
-        await content.save();
-      }
-    }
+    // All publishing is now handled by the queue/cron system
+    // This prevents Vercel timeout issues (30s limit)
+    console.log('Content: Created and queued for publishing via cron job');
     
     return NextResponse.json({ 
       success: true, 
