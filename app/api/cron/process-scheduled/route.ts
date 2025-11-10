@@ -53,6 +53,16 @@ export async function POST(request: NextRequest) {
         if (post.platform === 'instagram') {
           // Get user with Instagram tokens
           const user = await User.findById(post.userId);
+          
+          console.log('Instagram publish check:', {
+            userId: post.userId,
+            userFound: !!user,
+            instagramConnected: user?.instagram?.connected,
+            hasAccessToken: !!user?.instagram?.accessToken,
+            hasInstagramId: !!user?.instagram?.instagramId,
+            tokenExpiry: user?.instagram?.tokenExpiresAt
+          });
+
           if (!user || !user.instagram?.connected || !user.instagram?.accessToken) {
             throw new Error('Instagram account not connected or tokens missing');
           }
