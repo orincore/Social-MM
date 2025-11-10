@@ -82,6 +82,16 @@ export async function POST(request: NextRequest) {
         } else if (post.platform === 'youtube') {
           // Get user with YouTube tokens
           const user = await User.findById(post.userId);
+          
+          console.log('YouTube publish check:', {
+            userId: post.userId,
+            userFound: !!user,
+            youtubeConnected: user?.youtube?.connected,
+            hasAccessToken: !!user?.youtube?.accessToken,
+            hasRefreshToken: !!user?.youtube?.refreshToken,
+            tokenExpiry: user?.youtube?.tokenExpiresAt
+          });
+
           if (!user || !user.youtube?.connected || !user.youtube?.accessToken) {
             throw new Error('YouTube account not connected or tokens missing');
           }
@@ -175,18 +185,26 @@ export async function POST(request: NextRequest) {
           jobMetadata.privacyStatus = post.privacyStatus;
         }
 
-        await PublishJob.create({
-          userId: post.userId,
-          contentId: post._id,
-          platform: post.platform,
-          status: 'completed',
-          scheduledAt: post.scheduledAt,
-          result: {
-            success: true,
-            postId: publishedPostId
+        await PublishJob.updateOne(
+          {
+            contentId: post._id,
+            platform: post.platform
           },
-          metadata: jobMetadata
-        });
+          {
+            $set: {
+              userId: post.userId,
+              status: 'completed',
+              scheduledAt: post.scheduledAt,
+              completedAt: new Date(),
+              result: {
+                success: true,
+                postId: publishedPostId
+              },
+              metadata: jobMetadata
+            }
+          },
+          { upsert: true }
+        );
 
         processedCount++;
         console.log(`Successfully published post ${post._id} to ${post.platform}`);
@@ -220,18 +238,26 @@ export async function POST(request: NextRequest) {
           failedJobMetadata.privacyStatus = post.privacyStatus;
         }
 
-        await PublishJob.create({
-          userId: post.userId,
-          contentId: post._id,
-          platform: post.platform,
-          status: 'failed',
-          scheduledAt: post.scheduledAt,
-          result: {
-            success: false,
-            error: error.message
+        await PublishJob.updateOne(
+          {
+            contentId: post._id,
+            platform: post.platform
           },
-          metadata: failedJobMetadata
-        });
+          {
+            $set: {
+              userId: post.userId,
+              status: 'failed',
+              scheduledAt: post.scheduledAt,
+              completedAt: new Date(),
+              result: {
+                success: false,
+                error: error.message
+              },
+              metadata: failedJobMetadata
+            }
+          },
+          { upsert: true }
+        );
       }
     }
 
