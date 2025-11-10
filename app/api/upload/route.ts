@@ -207,6 +207,27 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check if R2 is configured
+    const isR2Configured = process.env.R2_BUCKET_NAME && 
+                          process.env.R2_ENDPOINT && 
+                          process.env.R2_ACCESS_KEY_ID && 
+                          process.env.R2_SECRET_ACCESS_KEY &&
+                          process.env.R2_PUBLIC_URL;
+
+    if (!isR2Configured) {
+      console.error('R2 configuration missing:', {
+        bucket: !!process.env.R2_BUCKET_NAME,
+        endpoint: !!process.env.R2_ENDPOINT,
+        accessKey: !!process.env.R2_ACCESS_KEY_ID,
+        secretKey: !!process.env.R2_SECRET_ACCESS_KEY,
+        publicUrl: !!process.env.R2_PUBLIC_URL
+      });
+      return NextResponse.json({
+        error: 'R2 storage is not configured. Please check environment variables.',
+        details: 'Missing R2 configuration'
+      }, { status: 500 });
+    }
+
     // Generate unique file key
     const userId = session.user.email.replace('@', '_').replace('.', '_');
     const fileKey = r2Storage.generateFileKey(userId, fileName, fileType as 'image' | 'video');
@@ -229,7 +250,7 @@ export async function GET(request: NextRequest) {
     console.error('Signed URL generation error:', error);
     return NextResponse.json({
       error: 'Failed to generate upload URL',
-      details: error.message
+      details: error.message || 'Unknown error'
     }, { status: 500 });
   }
 }
