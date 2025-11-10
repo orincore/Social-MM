@@ -42,19 +42,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Since we only accept videos for Reels and Shorts
-    const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi', 'video/mov', 'video/webm', 'video/mkv'];
+    // Since Instagram Reels only support MP4 upload via API, enforce MP4 files
+    const allowedTypes = ['video/mp4'];
     const fileType = 'video'; // Always video
+    const isMp4Mime = allowedTypes.includes(file.type);
+    const isMp4Extension = file.name?.toLowerCase().endsWith('.mp4');
     console.log('Upload: File type validation:', {
       fileType,
       actualFileType: file.type,
-      allowedTypes: allowedTypes
+      allowedTypes,
+      isMp4Mime,
+      isMp4Extension
     });
-    
-    if (!allowedTypes.includes(file.type)) {
-      console.log('Upload: Invalid file type');
+
+    if (!isMp4Mime || !isMp4Extension) {
+      console.log('Upload: Invalid file type for Instagram requirements');
       return NextResponse.json({ 
-        error: `Invalid file type. Allowed types: ${allowedTypes.join(', ')}` 
+        error: 'Unsupported file format. Please upload an MP4 video (H.264/AAC) to ensure Instagram compatibility.'
       }, { status: 400 });
     }
 

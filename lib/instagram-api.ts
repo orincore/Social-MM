@@ -3,6 +3,36 @@
 const FACEBOOK_API_BASE = 'https://graph.facebook.com/v18.0';
 const INSTAGRAM_API_BASE = 'https://graph.instagram.com';
 
+async function resolveInstagramVideoUrl(videoUrl: string): Promise<string> {
+  const r2PublicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, '');
+
+  if (!r2PublicUrl || !videoUrl.startsWith(`${r2PublicUrl}/`)) {
+    return videoUrl;
+  }
+
+  try {
+    const headResponse = await fetch(videoUrl, { method: 'HEAD' });
+    if (headResponse.ok) {
+      return videoUrl;
+    }
+
+    console.warn('Direct R2 URL HEAD request failed, falling back to signed URL', {
+      status: headResponse.status,
+      statusText: headResponse.statusText,
+    });
+  } catch (error) {
+    console.warn('Direct R2 URL HEAD request threw error, falling back to signed URL', error);
+  }
+
+  const r2Key = videoUrl.slice(r2PublicUrl.length + 1);
+  if (!r2Key) {
+    throw new Error('Unable to derive R2 key from media URL');
+  }
+
+  const { r2Storage } = await import('@/lib/r2-storage');
+  return r2Storage.getSignedDownloadUrl(r2Key, 900); // give Instagram 15 minutes to download
+}
+
 export interface InstagramAccount {
   id: string;
   username: string;
@@ -265,25 +295,23 @@ export class InstagramAPI {
         }
       }
 
-      // Step 1: Create media object using Facebook Graph API
-      // Try REELS first, fallback to VIDEO if it fails
-      const createParams = new URLSearchParams({
-        video_url: videoUrl,
-        caption: caption,
-        media_type: isReel ? 'REELS' : 'VIDEO',
-        access_token: this.accessToken,
-      });
-      
-      console.log('Creating media with type:', isReel ? 'REELS' : 'VIDEO');
+      console.log('Creating Instagram Reel media container...');
+      const instagramVideoUrl = await resolveInstagramVideoUrl(videoUrl);
 
       const createResponse = await fetch(
         `${FACEBOOK_API_BASE}/${instagramAccountId}/media`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/json',
           },
-          body: createParams,
+          body: JSON.stringify({
+            media_type: 'REELS',
+            caption,
+            video_url: instagramVideoUrl,
+            share_to_feed: true,
+            access_token: this.accessToken,
+          }),
         }
       );
 
@@ -295,11 +323,16 @@ export class InstagramAPI {
       const createData = await createResponse.json();
       const creationId = createData.id;
 
+      if (!creationId) {
+        console.error('Unexpected media creation response:', createData);
+        throw new Error('Failed to create Instagram media container.');
+      }
+
       // Step 2: Wait for media to be ready and then publish
       console.log('Waiting for media to be ready for publishing...');
       
-      // Poll the media status until it's ready (max 60 seconds)
-      const maxAttempts = 12; // 12 attempts * 5 seconds = 60 seconds max
+      // Poll the media status until it's ready (max 90 seconds)
+      const maxAttempts = 18; // 18 attempts * 5 seconds = 90 seconds max
       let attempt = 0;
       let isReady = false;
       
@@ -320,7 +353,7 @@ export class InstagramAPI {
           console.log('Media status:', statusData);
           
           // Status codes: EXPIRED, ERROR, FINISHED, IN_PROGRESS, PUBLISHED
-          if (statusData.status_code === 'FINISHED') {
+          if (statusData.status_code === 'FINISHED' || statusData.status_code === 'PUBLISHED') {
             isReady = true;
             break;
           } else if (statusData.status_code === 'ERROR' || statusData.status_code === 'EXPIRED') {
@@ -340,12 +373,10 @@ export class InstagramAPI {
           }
         }
       }
-      
+
       if (!isReady) {
-        throw new Error('Media processing timeout. Please try again later.');
+        throw new Error('Instagram media processing timed out before reaching FINISHED status.');
       }
-      
-      console.log('Media is ready, publishing...');
 
       // Step 3: Publish the media
       const publishResponse = await fetch(

@@ -74,6 +74,20 @@ export class R2Storage {
     }
   }
 
+  async getSignedDownloadUrl(key: string, expiresIn: number = 600): Promise<string> {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      return await getSignedUrl(this.client, command, { expiresIn });
+    } catch (error) {
+      console.error('Error generating signed download URL:', error);
+      throw error;
+    }
+  }
+
   // Download file from R2 and return as Blob
   async getFile(key: string): Promise<Blob> {
     try {

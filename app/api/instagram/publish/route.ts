@@ -101,18 +101,9 @@ export async function POST(request: NextRequest) {
         captionLength: caption.length
       });
 
-      // Try publishing as Reel first, fallback to regular video if it fails
-      try {
-        console.log('Instagram Publish: Attempting to publish as Reel...');
-        publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, true, instagramAccount.instagramId);
-        console.log('Instagram Publish: Successfully published as Reel with ID:', publishedPostId);
-      } catch (reelError: any) {
-        console.log('Instagram Publish: Reel failed, trying as regular video...', reelError.message);
-        
-        // If Reel fails, try as regular video
-        publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, false, instagramAccount.instagramId);
-        console.log('Instagram Publish: Successfully published as regular video with ID:', publishedPostId);
-      }
+      console.log('Instagram Publish: Attempting to publish as Reel (MP4 only)...');
+      publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, true, instagramAccount.instagramId);
+      console.log('Instagram Publish: Successfully published as Reel with ID:', publishedPostId);
 
       // Update content status if contentId provided
       if (contentId) {
@@ -191,7 +182,8 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         error: 'Failed to publish to Instagram',
-        details: publishError.message
+        details: publishError.message,
+        hint: 'Instagram requires MP4 videos (H.264/AAC), vertical 9:16 aspect ratio, and less than 60 seconds.'
       }, { status: 500 });
     }
 
