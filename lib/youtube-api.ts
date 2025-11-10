@@ -96,12 +96,25 @@ export class YouTubeAPI {
   }): Promise<any> {
     const { title, description, tags = [], categoryId = '22', privacyStatus, publishAt, videoBlob, thumbnailBlob } = params;
 
+    // Validate and sanitize inputs
+    const sanitizedTitle = (title || '').trim() || 'Untitled Video';
+    const sanitizedDescription = (description || '').trim() || 'No description provided';
+    const sanitizedTags = Array.isArray(tags) ? tags.filter(tag => tag && tag.trim()) : [];
+
+    console.log('YouTube API: Uploading video with metadata:', {
+      title: sanitizedTitle,
+      description: sanitizedDescription.substring(0, 100) + '...',
+      tagsCount: sanitizedTags.length,
+      categoryId,
+      privacyStatus
+    });
+
     // Step 1: Create video metadata
     const metadata = {
       snippet: {
-        title,
-        description,
-        tags,
+        title: sanitizedTitle,
+        description: sanitizedDescription,
+        tags: sanitizedTags,
         categoryId,
       },
       status: {

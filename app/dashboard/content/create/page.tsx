@@ -131,14 +131,10 @@ export default function CreateContent() {
       return;
     }
 
-    // Validate platform-specific requirements
+    // Validate platform-specific requirements with fallbacks
     if (selectedPlatforms.includes('youtube')) {
-      if (!title.trim()) {
-        alert('YouTube videos require a title');
-        return;
-      }
-      if (!description.trim()) {
-        alert('YouTube videos require a description');
+      if (!title.trim() && !caption.trim()) {
+        alert('YouTube videos require either a title or caption to generate a title');
         return;
       }
     }
@@ -176,12 +172,28 @@ export default function CreateContent() {
           status: 'scheduled' // Always use scheduled status - let queue handle publishing
         };
 
-        // Platform-specific fields
+        // Platform-specific fields with fallbacks
         if (platform === 'youtube') {
-          contentData.title = title;
-          contentData.description = description;
-          contentData.caption = description; // YouTube uses description as caption
-          contentData.tags = tags.split(',').map(t => t.trim()).filter(Boolean);
+          // Generate fallback title if not provided
+          let finalTitle = title.trim();
+          if (!finalTitle) {
+            // Use first 60 characters of caption as title
+            finalTitle = caption.trim().substring(0, 60).replace(/\n/g, ' ').trim();
+            if (!finalTitle) {
+              finalTitle = 'Untitled Video';
+            }
+          }
+          
+          // Generate fallback description if not provided
+          let finalDescription = description.trim();
+          if (!finalDescription) {
+            finalDescription = caption.trim() || 'No description provided';
+          }
+          
+          contentData.title = finalTitle;
+          contentData.description = finalDescription;
+          contentData.caption = finalDescription; // YouTube uses description as caption
+          contentData.tags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
         } else if (platform === 'instagram') {
           contentData.caption = caption;
           contentData.instagramOptions = {
@@ -322,6 +334,7 @@ export default function CreateContent() {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('AI Optimization Response:', data);
         if (data.success) {
           setAiResults(data.data);
           setAiOptimized(true);
@@ -565,6 +578,7 @@ export default function CreateContent() {
                       <div>
                         <h2 className="text-lg font-semibold text-gray-900">Instagram Content</h2>
                         <p className="text-sm text-gray-600">Create engaging content for Instagram Reels</p>
+                        <p className="text-xs text-gray-500">AI optimization is optional - you can publish without it</p>
                       </div>
                     </div>
                     <button
@@ -616,6 +630,7 @@ export default function CreateContent() {
                       <div>
                         <h2 className="text-lg font-semibold text-gray-900">YouTube Content</h2>
                         <p className="text-sm text-gray-600">Create optimized content for YouTube Shorts</p>
+                        <p className="text-xs text-gray-500">AI optimization is optional - you can publish without it</p>
                       </div>
                     </div>
                     <button

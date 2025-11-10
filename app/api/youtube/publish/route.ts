@@ -43,9 +43,27 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Content not found' }, { status: 404 });
       }
       
-      title = title || content.title || 'Untitled Video';
-      description = description || content.description || content.caption || 'No description';
-      tags = tags.length > 0 ? tags : (content.tags || []);
+      // Ensure title is valid (not empty, not just whitespace)
+      title = (title || content.title || '').trim();
+      if (!title) {
+        // Generate title from caption or description
+        const fallbackText = (content.caption || content.description || '').trim();
+        if (fallbackText) {
+          title = fallbackText.substring(0, 60).replace(/\n/g, ' ').trim();
+        }
+        if (!title) {
+          title = 'Untitled Video';
+        }
+      }
+      
+      // Ensure description is valid
+      description = (description || content.description || content.caption || '').trim();
+      if (!description) {
+        description = 'No description provided';
+      }
+      
+      // Ensure tags is an array
+      tags = Array.isArray(tags) && tags.length > 0 ? tags : (Array.isArray(content.tags) ? content.tags : []);
       
       // Extract r2Key from mediaUrl if not provided
       if (!r2Key && content.mediaUrl) {
@@ -60,12 +78,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (!title || !description || !r2Key) {
+    // Final validation with additional fallbacks
+    title = (title || '').trim();
+    if (!title) {
+      title = 'Untitled Video';
+    }
+    
+    description = (description || '').trim();
+    if (!description) {
+      description = 'No description provided';
+    }
+    
+    if (!r2Key) {
       console.log('YouTube Publish: Missing required fields');
       return NextResponse.json({ 
-        error: 'Missing required fields: title, description, r2Key' 
+        error: 'Missing required field: r2Key (media file)' 
       }, { status: 400 });
     }
+    
+    console.log('YouTube Publish: Final validation passed:', {
+      title: title.substring(0, 50) + '...',
+      description: description.substring(0, 50) + '...',
+      r2Key,
+      tagsCount: Array.isArray(tags) ? tags.length : 0
+    });
 
     await connectDB();
 
