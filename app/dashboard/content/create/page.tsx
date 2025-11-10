@@ -28,6 +28,8 @@ export default function CreateContent() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shareToFeed, setShareToFeed] = useState(true);
+  const [thumbOffset, setThumbOffset] = useState(0);
   const [connectedAccounts, setConnectedAccounts] = useState<ConnectedAccount[]>([]);
   
   // Load connected accounts
@@ -87,11 +89,16 @@ export default function CreateContent() {
   };
 
   const togglePlatform = (platform: string) => {
-    setSelectedPlatforms(prev => 
-      prev.includes(platform) 
+    setSelectedPlatforms(prev => {
+      const next = prev.includes(platform)
         ? prev.filter(p => p !== platform)
-        : [...prev, platform]
-    );
+        : [...prev, platform];
+      if (!next.includes('instagram')) {
+        setShareToFeed(true);
+        setThumbOffset(0);
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -172,6 +179,10 @@ export default function CreateContent() {
           contentData.tags = tags.split(',').map(t => t.trim()).filter(Boolean);
         } else if (platform === 'instagram') {
           contentData.caption = caption;
+          contentData.instagramOptions = {
+            shareToFeed,
+            thumbOffset
+          };
         }
         
         const response = await fetch('/api/content', {
@@ -202,6 +213,8 @@ export default function CreateContent() {
       setScheduledDate('');
       setScheduledTime('');
       setSelectedPlatforms([]);
+      setShareToFeed(true);
+      setThumbOffset(0);
       
       alert('Content published successfully! You can create another post.');
       
@@ -361,6 +374,55 @@ export default function CreateContent() {
               </div>
             )}
           </div>
+
+          {selectedPlatforms.includes('instagram') && (
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Instagram Reel Options</h2>
+              <div className="space-y-4">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                    checked={shareToFeed}
+                    onChange={(e) => setShareToFeed(e.target.checked)}
+                  />
+                  <span className="text-sm text-gray-700">Share Reel to Instagram feed</span>
+                </label>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700">Cover frame offset</label>
+                    <span className="text-xs text-gray-500">{thumbOffset}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={60}
+                    step={1}
+                    value={thumbOffset}
+                    onChange={(e) => setThumbOffset(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="mt-2 flex items-center space-x-3">
+                    <input
+                      type="number"
+                      min={0}
+                      max={60}
+                      value={thumbOffset}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        if (Number.isFinite(value)) {
+                          setThumbOffset(Math.max(0, Math.min(60, value)));
+                        }
+                      }}
+                      className="w-20 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    />
+                    <p className="text-xs text-gray-500">Instagram uses this offset to capture the cover frame (0-60s).</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Content Text */}
           <div className="bg-white rounded-lg shadow-sm border p-6">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth-options';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { YouTubeAccount } from '@/models/YouTubeAccount';
@@ -143,6 +143,24 @@ export async function GET(request: NextRequest) {
       });
       await newAccount.save();
     }
+
+    // ALSO store YouTube tokens directly in User profile for better persistence
+    user.youtube = {
+      connected: true,
+      accessToken: access_token,
+      refreshToken: refresh_token,
+      tokenExpiresAt: expiresAt,
+      channelId: channelId,
+      channelTitle: channelTitle,
+      channelDescription: description,
+      thumbnailUrl: thumbnailUrl,
+      subscriberCount: subscriberCount,
+      videoCount: videoCount,
+      viewCount: viewCount,
+      connectedAt: new Date()
+    };
+    await user.save();
+    console.log('YouTube tokens stored in User profile for persistence');
 
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?success=youtube_connected`);
   } catch (error) {

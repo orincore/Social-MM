@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth-options';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { YouTubeAccount } from '@/models/YouTubeAccount';
@@ -22,8 +22,35 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ connected: false, error: 'User not found' });
     }
+
+    // First check User profile for YouTube connection
+    if (user.youtube?.connected && user.youtube?.accessToken) {
+      // Check if token is expired
+      const isTokenExpired = user.youtube.tokenExpiresAt && new Date() > user.youtube.tokenExpiresAt;
+      
+      if (!isTokenExpired) {
+        return NextResponse.json({
+          connected: true,
+          channel: {
+            title: user.youtube.channelTitle,
+            channelId: user.youtube.channelId,
+            description: user.youtube.channelDescription,
+            thumbnailUrl: user.youtube.thumbnailUrl,
+            subscriberCount: user.youtube.subscriberCount,
+            videoCount: user.youtube.videoCount,
+            viewCount: user.youtube.viewCount,
+            connectedAt: user.youtube.connectedAt
+          },
+          source: 'user_profile'
+        });
+      } else {
+        // Token expired, mark as disconnected in user profile
+        user.youtube.connected = false;
+        await user.save();
+      }
+    }
     
-    // Get the user's YouTube account
+    // Fallback to separate YouTube account model
     const account = await YouTubeAccount.findOne({ 
       userId: user._id, 
       isActive: true 

@@ -25,6 +25,10 @@ const ContentSchema = new Schema({
     youtubeVideoId: String,
     youtubeUrl: String,
     youtubeChannelId: String
+  },
+  instagramOptions: {
+    shareToFeed: { type: Boolean, default: true },
+    thumbOffset: { type: Number, default: 0 }
   }
 }, { timestamps: true });
 

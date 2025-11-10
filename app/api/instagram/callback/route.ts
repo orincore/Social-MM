@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth-options';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { InstagramAccount } from '@/models/InstagramAccount';
@@ -205,6 +205,25 @@ export async function GET(request: NextRequest) {
       await newAccount.save();
       console.log('New Instagram account created successfully:', newAccount._id);
     }
+
+    // ALSO store Instagram tokens directly in User profile for better persistence
+    user.instagram = {
+      connected: true,
+      accessToken: pageAccessToken,
+      refreshToken: null, // Instagram doesn't use refresh tokens
+      tokenExpiresAt: new Date(Date.now() + (expiresIn || 3600) * 1000),
+      instagramId: profileData.id,
+      username: profileData.username,
+      accountType: profileData.account_type || 'BUSINESS',
+      profilePictureUrl: profileData.profile_picture_url,
+      followersCount: profileData.followers_count || 0,
+      followingCount: profileData.follows_count || 0,
+      mediaCount: profileData.media_count || 0,
+      biography: profileData.biography,
+      connectedAt: new Date()
+    };
+    await user.save();
+    console.log('Instagram tokens stored in User profile for persistence');
 
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?success=instagram_connected`);
   } catch (error) {

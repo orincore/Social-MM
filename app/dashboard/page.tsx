@@ -6,6 +6,7 @@ import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, I
 import { useState, useEffect } from 'react';
 import { DashboardSkeleton, AnalyticsCardSkeleton } from '@/components/ui/skeleton';
 import { formatNumber, getRelativeTime } from '@/lib/utils';
+import DashboardHeader from '@/components/dashboard-header';
 
 interface PlatformStatus {
   connected: boolean;
@@ -188,44 +189,34 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600 mt-1">
-              Welcome back! Here's your social media overview.
-              {combinedAnalytics?.fromCache && (
-                <span className="ml-2 text-sm text-blue-600">
-                  {combinedAnalytics.isStale ? '(Updating...)' : '(Cached)'}
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            {hasConnectedPlatforms && (
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-            )}
-            <Link 
-              href="/dashboard/accounts" 
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
+        <DashboardHeader 
+          title="Dashboard" 
+          description={`Welcome back! Here's your social media overview.${combinedAnalytics?.fromCache ? ` ${combinedAnalytics.isStale ? '(Updating...)' : '(Cached)'}` : ''}`}
+        >
+          {hasConnectedPlatforms && (
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
             >
-              Manage Accounts
-            </Link>
-            <Link 
-              href="/dashboard/content/create" 
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create Post
-            </Link>
-          </div>
-        </div>
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          )}
+          <Link 
+            href="/dashboard/accounts" 
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Manage Accounts
+          </Link>
+          <Link 
+            href="/dashboard/content/create" 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create Post
+          </Link>
+        </DashboardHeader>
 
         {!hasConnectedPlatforms ? (
           // No platforms connected

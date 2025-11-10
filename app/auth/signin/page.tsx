@@ -2,8 +2,9 @@
 
 import { signIn, getProviders } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Zap, Github } from 'lucide-react';
+import { Zap, Github, AlertTriangle } from 'lucide-react';
 
 interface Provider {
   id: string;
@@ -15,6 +16,8 @@ interface Provider {
 
 export default function SignInPage() {
   const [providers, setProviders] = useState<Record<string, Provider> | null>(null);
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
 
   useEffect(() => {
     const fetchProviders = async () => {
@@ -74,6 +77,37 @@ export default function SignInPage() {
             </Link>
           </p>
         </div>
+
+        {/* Error Message */}
+        {error === 'account_deleted' && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-red-500 mr-3" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">Account Deleted</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  Your account has been deleted. Please contact support if you believe this is an error.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && error !== 'account_deleted' && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-red-500 mr-3" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">Sign In Error</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  {error === 'OAuthCallback' ? 'Authentication failed. Please try again.' : 
+                   error === 'AccessDenied' ? 'Access denied. Please check your permissions.' :
+                   'An error occurred during sign in. Please try again.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 space-y-4">
           {providers &&

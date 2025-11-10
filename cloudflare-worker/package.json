@@ -1,0 +1,18 @@
+{
+  "name": "social-mm-cloudflare-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for Social MM scheduled publishing",
+  "main": "scheduled-publisher.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "test": "wrangler dev --test-scheduled"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

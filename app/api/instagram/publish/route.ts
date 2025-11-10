@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth-options';
 import connectDB from '@/lib/db';
 import { InstagramAccount } from '@/models/InstagramAccount';
 import Content from '@/models/Content';
 import { PublishJob } from '@/models/PublishJob';
 import { InstagramAPI } from '@/lib/instagram-api';
-import { r2Storage } from '@/lib/r2-storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +27,9 @@ export async function POST(request: NextRequest) {
       caption, 
       mediaType = 'IMAGE',
       isReel = false,
-      scheduledAt 
+      scheduledAt,
+      shareToFeed,
+      thumbOffset
     } = body;
 
     // If contentId is provided but other fields are missing, fetch from database
@@ -41,10 +42,14 @@ export async function POST(request: NextRequest) {
       
       mediaUrl = mediaUrl || content.mediaUrl;
       caption = caption || content.caption;
-      
+      shareToFeed = shareToFeed ?? content.instagramOptions?.shareToFeed;
+      thumbOffset = thumbOffset ?? content.instagramOptions?.thumbOffset;
+
       console.log('Instagram Publish: Content data fetched:', {
         mediaUrl,
-        caption
+        caption,
+        shareToFeed,
+        thumbOffset
       });
     }
 
@@ -61,6 +66,11 @@ export async function POST(request: NextRequest) {
     isReel = true;
 
     console.log('Instagram Publish: Media type set to VIDEO (Reel):', mediaType);
+
+    const normalizedShareToFeed = typeof shareToFeed === 'boolean' ? shareToFeed : true;
+    const parsedThumbOffset = Number.isFinite(Number(thumbOffset))
+      ? Math.max(0, Math.min(60, Math.floor(Number(thumbOffset))))
+      : 0;
 
     // Get user first
     const User = (await import('@/models/User')).default;
@@ -98,11 +108,18 @@ export async function POST(request: NextRequest) {
         mediaType,
         isReel,
         mediaUrl,
-        captionLength: caption.length
+        captionLength: caption.length,
+        shareToFeed: normalizedShareToFeed,
+        thumbOffset: parsedThumbOffset
       });
 
       console.log('Instagram Publish: Attempting to publish as Reel (MP4 only)...');
-      publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, true, instagramAccount.instagramId);
+      publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, {
+        isReel: true,
+        instagramAccountId: instagramAccount.instagramId,
+        shareToFeed: normalizedShareToFeed,
+        thumbOffset: parsedThumbOffset
+      });
       console.log('Instagram Publish: Successfully published as Reel with ID:', publishedPostId);
 
       // Update content status if contentId provided
@@ -130,6 +147,8 @@ export async function POST(request: NextRequest) {
           metadata: {
             mediaType,
             isReel,
+            shareToFeed: normalizedShareToFeed,
+            thumbOffset: parsedThumbOffset,
             caption: caption.substring(0, 100) + (caption.length > 100 ? '...' : '')
           }
         });

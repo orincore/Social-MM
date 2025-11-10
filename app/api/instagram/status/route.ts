@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth-options';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import { InstagramAccount } from '@/models/InstagramAccount';
@@ -26,6 +26,34 @@ export async function GET() {
     
     if (!user) {
       return NextResponse.json({ connected: false, error: 'User not found' });
+    }
+
+    // First check User profile for Instagram connection
+    if (user.instagram?.connected && user.instagram?.accessToken) {
+      // Check if token is expired
+      const isTokenExpired = user.instagram.tokenExpiresAt && new Date() > user.instagram.tokenExpiresAt;
+      
+      if (!isTokenExpired) {
+        return NextResponse.json({
+          connected: true,
+          account: {
+            username: user.instagram.username,
+            instagramId: user.instagram.instagramId,
+            accountType: user.instagram.accountType,
+            profilePictureUrl: user.instagram.profilePictureUrl,
+            followersCount: user.instagram.followersCount,
+            followingCount: user.instagram.followingCount,
+            mediaCount: user.instagram.mediaCount,
+            biography: user.instagram.biography,
+            connectedAt: user.instagram.connectedAt
+          },
+          source: 'user_profile'
+        });
+      } else {
+        // Token expired, mark as disconnected in user profile
+        user.instagram.connected = false;
+        await user.save();
+      }
     }
     
     // Get the user's Instagram account

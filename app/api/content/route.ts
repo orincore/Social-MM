@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth-options';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
 import Content from '@/models/Content';
@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
       tags, 
       mediaUrl, 
       scheduledAt, 
-      status 
+      status,
+      instagramOptions
     } = requestBody;
     
     if (!platform) {
@@ -67,6 +68,12 @@ export async function POST(req: NextRequest) {
       }
     } else {
       contentData.caption = caption;
+      const shareToFeed = instagramOptions?.shareToFeed ?? true;
+      const thumbOffset = instagramOptions?.thumbOffset ?? 0;
+      contentData.instagramOptions = {
+        shareToFeed,
+        thumbOffset
+      };
     }
 
     if (mediaUrl) {
@@ -120,7 +127,9 @@ export async function POST(req: NextRequest) {
           publishData = {
             contentId: content._id.toString(),
             caption: content.caption,
-            mediaUrl: mediaUrl
+            mediaUrl: mediaUrl,
+            shareToFeed: content.instagramOptions?.shareToFeed ?? true,
+            thumbOffset: content.instagramOptions?.thumbOffset ?? 0
           };
         }
 

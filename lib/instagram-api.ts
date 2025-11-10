@@ -263,8 +263,31 @@ export class InstagramAPI {
 
   // Post Video/Reel to Instagram (requires Instagram Business Account)
   // Default to Reel since we're only posting Reels and Shorts
-  async postVideo(videoUrl: string, caption: string, isReel: boolean = true, instagramAccountId?: string): Promise<string> {
+  async postVideo(
+    videoUrl: string,
+    caption: string,
+    options: {
+      isReel?: boolean;
+      instagramAccountId?: string;
+      shareToFeed?: boolean;
+      thumbOffset?: number;
+    } = {}
+  ): Promise<string> {
     try {
+      const {
+        isReel = true,
+        instagramAccountId: providedInstagramAccountId,
+        shareToFeed = true,
+        thumbOffset = 0,
+      } = options;
+
+      let instagramAccountId = providedInstagramAccountId;
+
+      const rawThumbOffset = Number(thumbOffset);
+      const normalizedThumbOffset = Number.isFinite(rawThumbOffset)
+        ? Math.max(0, Math.min(60, Math.floor(rawThumbOffset)))
+        : 0;
+
       // First, get the Instagram Business Account ID if not provided
       if (!instagramAccountId) {
         const accountResponse = await fetch(
@@ -295,8 +318,25 @@ export class InstagramAPI {
         }
       }
 
-      console.log('Creating Instagram Reel media container...');
+      const mediaType = isReel ? 'REELS' : 'VIDEO';
+      console.log('Creating Instagram media container...', {
+        mediaType,
+        shareToFeed,
+        thumbOffset: normalizedThumbOffset,
+      });
       const instagramVideoUrl = await resolveInstagramVideoUrl(videoUrl);
+
+      const payload: Record<string, any> = {
+        media_type: mediaType,
+        caption,
+        video_url: instagramVideoUrl,
+        access_token: this.accessToken,
+      };
+
+      if (isReel) {
+        payload.share_to_feed = shareToFeed;
+        payload.thumb_offset = normalizedThumbOffset;
+      }
 
       const createResponse = await fetch(
         `${FACEBOOK_API_BASE}/${instagramAccountId}/media`,
@@ -305,13 +345,7 @@ export class InstagramAPI {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            media_type: 'REELS',
-            caption,
-            video_url: instagramVideoUrl,
-            share_to_feed: true,
-            access_token: this.accessToken,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 

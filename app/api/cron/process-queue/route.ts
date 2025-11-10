@@ -3,7 +3,10 @@ import connectDB from '@/lib/db';
 import Content from '@/models/Content';
 import { PublishJob } from '@/models/PublishJob';
 import { InstagramAccount } from '@/models/InstagramAccount';
+import { YouTubeAccount } from '@/models/YouTubeAccount';
 import { InstagramAPI } from '@/lib/instagram-api';
+import { YouTubeAPI } from '@/lib/youtube-api';
+import User from '@/models/User';
 
 // Upstash Redis client for queue operations
 let redisClient: any = null;
@@ -92,11 +95,14 @@ export async function POST(request: NextRequest) {
           const { 
             contentId, 
             userEmail, 
+            userId,
             mediaUrl, 
             caption, 
             mediaType, 
             platforms, 
-            isReel 
+            isReel,
+            shareToFeed,
+            thumbOffset
           } = jobData;
 
           // Check if content still exists and is scheduled
@@ -117,58 +123,95 @@ export async function POST(request: NextRequest) {
             updatedAt: new Date()
           });
 
-          // Get user's Instagram account
-          const instagramAccount = await InstagramAccount.findOne({
-            userEmail
-          });
-
-          if (!instagramAccount) {
-            throw new Error('Instagram account not found');
-          }
-
-          // Initialize Instagram API
-          const instagramAPI = new InstagramAPI(instagramAccount.accessToken);
-
           let publishedPostId: string;
+          
+          if (content.platform === 'instagram') {
+            // Get user with Instagram tokens
+            const user = await User.findById(userId || content.userId);
+            if (!user || !user.instagram?.connected || !user.instagram?.accessToken) {
+              throw new Error('Instagram account not connected or tokens missing');
+            }
 
-          // Publish based on media type
-          if (mediaType === 'VIDEO' || isReel) {
-            publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, isReel);
+            // Check if token is expired
+            if (user.instagram.tokenExpiresAt && new Date() > user.instagram.tokenExpiresAt) {
+              throw new Error('Instagram token expired. Please reconnect your account.');
+            }
+
+            // Initialize Instagram API
+            const instagramAPI = new InstagramAPI(user.instagram.accessToken);
+
+            // Publish Instagram Reel
+            console.log('Publishing queued Instagram Reel:', {
+              mediaUrl,
+              caption: caption?.substring(0, 50) + '...',
+              shareToFeed: shareToFeed ?? content.instagramOptions?.shareToFeed,
+              thumbOffset: thumbOffset ?? content.instagramOptions?.thumbOffset
+            });
+            
+            publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, {
+              isReel: true,
+              instagramAccountId: user.instagram.instagramId,
+              shareToFeed: shareToFeed ?? content.instagramOptions?.shareToFeed ?? true,
+              thumbOffset: thumbOffset ?? content.instagramOptions?.thumbOffset ?? 0
+            });
           } else {
-            publishedPostId = await instagramAPI.postImage(mediaUrl, caption);
+            throw new Error(`Unsupported platform in queue: ${content.platform}`);
           }
 
           // Update content status to published
-          await Content.findByIdAndUpdate(contentId, {
+          const updateData: any = {
             status: 'published',
             publishedAt: new Date(),
             publishedPostId,
-            publishedPlatforms: platforms,
             updatedAt: new Date()
-          });
+          };
+
+          if (content.platform === 'instagram') {
+            updateData['remote.mediaId'] = publishedPostId;
+          } else if (content.platform === 'youtube') {
+            updateData['remote.youtubeVideoId'] = publishedPostId;
+            updateData['remote.youtubeUrl'] = `https://www.youtube.com/watch?v=${publishedPostId}`;
+          }
+
+          await Content.findByIdAndUpdate(contentId, updateData);
 
           // Create successful publish job record
+          const jobMetadata: any = {
+            processedBy: 'redis-queue',
+            source,
+            redisJobKey: jobKey
+          };
+
+          if (content.platform === 'instagram') {
+            jobMetadata.mediaType = 'VIDEO';
+            jobMetadata.isReel = true;
+            jobMetadata.shareToFeed = shareToFeed ?? content.instagramOptions?.shareToFeed ?? true;
+            jobMetadata.thumbOffset = thumbOffset ?? content.instagramOptions?.thumbOffset ?? 0;
+          } else if (content.platform === 'youtube') {
+            jobMetadata.title = content.title;
+            jobMetadata.description = content.description;
+            jobMetadata.tags = content.tags;
+            jobMetadata.privacyStatus = content.privacyStatus;
+          }
+
           await PublishJob.create({
-            userEmail,
+            userId: userId || content.userId,
             contentId,
-            platform: 'instagram',
+            platform: content.platform,
             status: 'completed',
-            publishedPostId,
-            publishedAt: new Date(),
-            metadata: {
-              mediaType,
-              isReel,
-              processedBy: 'redis-queue',
-              source,
-              redisJobKey: jobKey
-            }
+            scheduledAt: content.scheduledAt,
+            result: {
+              success: true,
+              postId: publishedPostId
+            },
+            metadata: jobMetadata
           });
 
           // Remove the job from Redis after successful processing
           await redis.del(jobKey);
           
           processedCount++;
-          console.log(`Successfully published queued post ${contentId} to Instagram`);
+          console.log(`Successfully published queued post ${contentId} to ${content.platform}`);
 
         } catch (jobError: any) {
           console.error(`Failed to process Redis job ${jobKey}:`, jobError);
@@ -186,19 +229,36 @@ export async function POST(request: NextRequest) {
             // Create failed publish job record
             const jobUserEmail = jobData?.userEmail || 'unknown';
 
+            const failedJobMetadata: any = {
+              processedBy: 'redis-queue',
+              source,
+              redisJobKey: jobKey
+            };
+
+            const content = await Content.findById(contentId);
+            if (content?.platform === 'instagram') {
+              failedJobMetadata.mediaType = 'VIDEO';
+              failedJobMetadata.isReel = true;
+              failedJobMetadata.shareToFeed = jobData?.shareToFeed ?? true;
+              failedJobMetadata.thumbOffset = jobData?.thumbOffset ?? 0;
+            } else if (content?.platform === 'youtube') {
+              failedJobMetadata.title = content.title;
+              failedJobMetadata.description = content.description;
+              failedJobMetadata.tags = content.tags;
+              failedJobMetadata.privacyStatus = content.privacyStatus;
+            }
+
             await PublishJob.create({
-              userEmail: jobUserEmail,
+              userId: jobData?.userId || contentId,
               contentId,
-              platform: 'instagram',
+              platform: content?.platform || 'unknown',
               status: 'failed',
-              error: jobError.message,
-              metadata: {
-                mediaType: jobData?.mediaType,
-                isReel: jobData?.isReel,
-                processedBy: 'redis-queue',
-                source,
-                redisJobKey: jobKey
-              }
+              scheduledAt: jobData?.scheduledAt ? new Date(jobData.scheduledAt) : new Date(),
+              result: {
+                success: false,
+                error: jobError.message
+              },
+              metadata: failedJobMetadata
             });
 
             // Remove the failed job from Redis

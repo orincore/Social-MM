@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:https": "concurrently \"next dev -p 3000\" \"local-ssl-proxy --source 3443 --target 3000 --cert certs/localhost-cert.pem --key certs/localhost-key.pem\"",
+    "dev:https": "concurrently \"next dev -p 3000 \" \"local-ssl-proxy --source 3443 --target 3000 --cert certs/localhost-cert.pem --key certs/localhost-key.pem\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -21,7 +21,7 @@
     "lucide-react": "^0.290.0",
     "mongodb": "^6.3.0",
     "mongoose": "^8.0.0",
-    "next": "^16.0.2-canary.11",
+    "next": "^16.0.1",
     "next-auth": "^4.24.0",
     "openai": "^4.20.0",
     "react": "^18.2.0",

@@ -3,32 +3,50 @@
 name = "social-mm-scheduler"
 main = "scheduled-publisher.js"
 compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
 
-# Cron trigger - runs every minute
+# Cron trigger - runs every minute to process scheduled posts
 [triggers]
 crons = ["* * * * *"]
 
 # Environment variables
+# Non-secret values can be injected from .env using env:LOOKUP
 [vars]
-# These will be set in Cloudflare dashboard or via wrangler secret
-NEXTJS_APP_URL = "https://your-app.vercel.app"  # Replace with your actual Vercel URL
+# Base values – override via `wrangler secret put` or environment-specific blocks as needed
+NEXTJS_APP_URL = "https://socialos.orincore.com"
+UPSTASH_QUEUE_URL = ""
 
-# Secrets (set these using: wrangler secret put SECRET_NAME)
-# CRON_SECRET = "your-secure-cron-secret-here"
-# UPSTASH_QUEUE_URL = "your-upstash-queue-url-here"
+# Development configuration inherits base vars but can override from .env
 
-# Development configuration
 [env.development]
-vars = { NEXTJS_APP_URL = "https://localhost:3443" }
 
-# Production configuration  
+[env.development.vars]
+NEXTJS_APP_URL = "http://localhost:3000"
+UPSTASH_QUEUE_URL = ""
+
+# Production configuration reads values from production .env / secrets
 [env.production]
-vars = { NEXTJS_APP_URL = "https://your-production-domain.com" }
+
+[env.production.vars]
+NEXTJS_APP_URL = "https://socialos.orincore.com"
+UPSTASH_QUEUE_URL = ""
+
+# Secrets (e.g. CRON_SECRET, UPSTASH queue tokens) should be managed via:
+#   wrangler secret put CRON_SECRET
+#   wrangler secret put UPSTASH_QUEUE_TOKEN
 
 # Worker settings
 [build]
 command = ""
 
-# Limits
-[limits]
-cpu_ms = 10000  # 10 seconds max execution time
+# Durable Objects (if needed)
+# [[durable_objects.bindings]]
+# name = "SCHEDULER"
+# class_name = "SchedulerDurableObject"
+
+# KV namespaces (if needed)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
