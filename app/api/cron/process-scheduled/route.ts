@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
           // Mark as processing and store the creation ID
           await Content.findByIdAndUpdate(post._id, {
             status: 'processing',
-            'remote.instagramCreationId': creationId,
+            'remote.creationId': creationId,
             updatedAt: new Date()
           });
           

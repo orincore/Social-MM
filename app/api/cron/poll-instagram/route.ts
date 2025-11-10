@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const processingPosts = await Content.find({
       platform: 'instagram',
       status: 'processing',
-      'remote.instagramCreationId': { $exists: true }
+      'remote.creationId': { $exists: true }
     }).limit(20); // Process max 20 at a time
 
     console.log(`Instagram polling: Found ${processingPosts.length} posts to poll`);
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (processingPosts.length > 0) {
       console.log('Processing posts:', processingPosts.map(p => ({
         id: p._id,
-        creationId: p.remote?.instagramCreationId,
+        creationId: p.remote?.creationId,
         status: p.status
       })));
     }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     for (const post of processingPosts) {
       try {
-        const creationId = post.remote?.instagramCreationId;
+        const creationId = post.remote?.creationId;
         if (!creationId) continue;
 
         // Get user's Instagram access token
