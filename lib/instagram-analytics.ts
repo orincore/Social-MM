@@ -96,13 +96,15 @@ export async function getInstagramAnalytics(userEmail: string, period: string = 
       engagement_rate: 0,
     };
 
-    // Try to get insights for different periods and metrics
-    console.log('Direct Instagram Analytics: Fetching insights...');
-    
-    // Try to get account-level insights
+    // Normalize period for Instagram API (reach metric supports day/week/days_28)
+    const normalizedPeriod = period === 'lifetime' ? 'days_28' : period === 'month' ? 'days_28' : period;
+
+    // Try to get account-level insights for the period
+    // Note: Only use 'reach' metric - profile_views requires metric_type parameter
     try {
+      console.log('Direct Instagram Analytics: Fetching insights...');
       const accountInsightsResponse = await fetch(
-        `${baseUrl}/${ig_user_id}/insights?metric=reach,impressions,profile_views&period=days_28&access_token=${page_access_token}`
+        `${baseUrl}/${ig_user_id}/insights?metric=reach&period=${normalizedPeriod}&access_token=${page_access_token}`
       );
       
       if (accountInsightsResponse.ok) {
@@ -113,8 +115,6 @@ export async function getInstagramAnalytics(userEmail: string, period: string = 
           const value = metric.values[0]?.value || 0;
           console.log(`Direct Instagram Analytics: ${metric.name} = ${value}`);
           if (metric.name === 'reach') insights.reach = value;
-          if (metric.name === 'impressions') insights.impressions = value;
-          if (metric.name === 'profile_views') insights.profile_views = value;
         });
       } else {
         const errorText = await accountInsightsResponse.text();
@@ -124,32 +124,29 @@ export async function getInstagramAnalytics(userEmail: string, period: string = 
       console.log('Direct Instagram Analytics: Account insights error:', error);
     }
 
-    // If account insights failed, try daily insights and sum them up
+    // If account insights failed, try lifetime insights (28 days)
     if (insights.reach === 0) {
       try {
-        console.log('Direct Instagram Analytics: Trying daily insights...');
-        const dailyInsightsResponse = await fetch(
-          `${baseUrl}/${ig_user_id}/insights?metric=reach,impressions,profile_views&period=day&access_token=${page_access_token}`
+        console.log('Direct Instagram Analytics: Trying lifetime insights (28 days)...');
+        const lifetimeInsightsResponse = await fetch(
+          `${baseUrl}/${ig_user_id}/insights?metric=reach&period=days_28&access_token=${page_access_token}`
         );
         
-        if (dailyInsightsResponse.ok) {
-          const dailyInsightsData = await dailyInsightsResponse.json();
-          console.log('Direct Instagram Analytics: Daily insights fetched:', dailyInsightsData);
+        if (lifetimeInsightsResponse.ok) {
+          const lifetimeInsightsData = await lifetimeInsightsResponse.json();
+          console.log('Direct Instagram Analytics: Lifetime insights fetched:', lifetimeInsightsData);
           
-          dailyInsightsData.data?.forEach((metric: any) => {
-            // Sum up the last 28 days of data
-            const totalValue = metric.values?.reduce((sum: number, dayData: any) => sum + (dayData.value || 0), 0) || 0;
-            console.log(`Direct Instagram Analytics: ${metric.name} (28 days) = ${totalValue}`);
-            if (metric.name === 'reach') insights.reach = totalValue;
-            if (metric.name === 'impressions') insights.impressions = totalValue;
-            if (metric.name === 'profile_views') insights.profile_views = totalValue;
+          lifetimeInsightsData.data?.forEach((metric: any) => {
+            const value = metric.values?.[0]?.value || 0;
+            console.log(`Direct Instagram Analytics: ${metric.name} (28 days) = ${value}`);
+            if (metric.name === 'reach') insights.reach = value;
           });
         } else {
-          const errorText = await dailyInsightsResponse.text();
-          console.log('Direct Instagram Analytics: Daily insights failed:', errorText);
+          const errorText = await lifetimeInsightsResponse.text();
+          console.log('Direct Instagram Analytics: Lifetime insights failed:', errorText);
         }
       } catch (error) {
-        console.log('Direct Instagram Analytics: Daily insights error:', error);
+        console.log('Direct Instagram Analytics: Lifetime insights error:', error);
       }
     }
 

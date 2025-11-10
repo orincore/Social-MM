@@ -8,7 +8,7 @@ export default function SiteFooter() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex items-center justify-center md:justify-start">
             <Zap className="h-6 w-6 text-indigo-600" />
-            <span className="ml-2 text-lg font-semibold text-gray-900">Social MM</span>
+            <span className="ml-2 text-lg font-semibold text-gray-900">Social OS</span>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center gap-4 text-center text-sm text-gray-600">

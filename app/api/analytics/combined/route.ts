@@ -8,6 +8,94 @@ import { YouTubeAccount } from '@/models/YouTubeAccount';
 import { withCache } from '@/lib/analytics-cache';
 import { getInstagramAnalytics } from '@/lib/instagram-analytics';
 
+function computeBestTime(content: any[], timestampKey: 'timestamp' | 'publishedAt') {
+  if (!content || content.length === 0) return null;
+
+  const buckets: Record<string, { weekdayIndex: number; weekday: string; hour: number; totalEngagement: number; count: number }> = {};
+  const weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  content.forEach(item => {
+    const rawTimestamp = item[timestampKey];
+    if (!rawTimestamp) return;
+    const date = new Date(rawTimestamp);
+    if (Number.isNaN(date.getTime())) return;
+
+    const weekdayIndex = date.getUTCDay();
+    const hour = date.getUTCHours();
+    const key = `${weekdayIndex}-${hour}`;
+    const engagement = (item.engagement || 0) + (item.likes || 0) + (item.comments || 0) + (item.views || 0);
+
+    if (!buckets[key]) {
+      buckets[key] = {
+        weekdayIndex,
+        weekday: weekDays[weekdayIndex],
+        hour,
+        totalEngagement: 0,
+        count: 0,
+      };
+    }
+
+    buckets[key].totalEngagement += engagement;
+    buckets[key].count += 1;
+  });
+
+  const bucketList = Object.values(buckets);
+  if (bucketList.length === 0) return null;
+
+  const bestBucket = bucketList.reduce((best, current) => {
+    const bestAvg = best.totalEngagement / best.count;
+    const currentAvg = current.totalEngagement / current.count;
+    if (currentAvg > bestAvg) return current;
+    if (currentAvg === bestAvg && current.count > best.count) return current;
+    return best;
+  }, bucketList[0]);
+
+  return {
+    weekday: bestBucket.weekday,
+    hour: bestBucket.hour,
+    hourFormatted: formatHour(bestBucket.hour),
+    timezone: 'UTC',
+    averageEngagement: Math.round(bestBucket.totalEngagement / bestBucket.count),
+    sampleSize: bestBucket.count,
+  };
+}
+
+function formatHour(hour: number) {
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const normalized = hour % 12 === 0 ? 12 : hour % 12;
+  return `${normalized}:00 ${suffix}`;
+}
+
+function computeCommentStats(content: any[]) {
+  if (!content || content.length === 0) {
+    return {
+      total: 0,
+      average: 0,
+      sampleSize: 0,
+      topCommented: null,
+    };
+  }
+
+  const total = content.reduce((sum, item) => sum + (item.comments || 0), 0);
+  const average = total / content.length;
+
+  const topCommentedItem = content
+    .slice()
+    .sort((a, b) => (b.comments || 0) - (a.comments || 0))[0];
+
+  return {
+    total,
+    average: Math.round(average * 10) / 10,
+    sampleSize: content.length,
+    topCommented: topCommentedItem ? {
+      id: topCommentedItem.id,
+      title: topCommentedItem.title || topCommentedItem.caption || 'Untitled',
+      comments: topCommentedItem.comments || 0,
+      url: topCommentedItem.url || topCommentedItem.permalink || null,
+    } : null,
+  };
+}
+
 export async function GET(request: NextRequest) {
   console.log('Combined Analytics API called');
   
@@ -173,6 +261,136 @@ async function fetchCombinedAnalytics(
   }
 
   // Normalize and combine data
+  const instagramRecentContent = instagramData?.recent_media?.map((media: any) => ({
+    id: media.id,
+    caption: media.caption,
+    mediaType: media.media_type,
+    mediaUrl: media.media_url,
+    thumbnailUrl: media.thumbnail_url || media.media_url,
+    permalink: media.permalink,
+    timestamp: media.timestamp,
+    likes: media.like_count || 0,
+    comments: media.comments_count || 0,
+    engagement: (media.like_count || 0) + (media.comments_count || 0),
+  })) || [];
+
+  const instagramTopContent = instagramRecentContent
+    .slice()
+    .sort((a: Record<string, any>, b: Record<string, any>) => (b.engagement || 0) - (a.engagement || 0))
+    .slice(0, 3);
+
+  const instagramBestTime = computeBestTime(instagramRecentContent, 'timestamp');
+  const instagramCommentStats = computeCommentStats(instagramRecentContent);
+
+  const instagramMetrics = instagramData ? (() => {
+    const totalPosts = instagramData.account?.media_count || 0;
+    const followers = instagramData.account?.followers_count || 0;
+    const reach = instagramData.insights?.reach || 0;
+    const impressions = instagramData.insights?.impressions || 0;
+    const totalEngagement = instagramData.insights?.total_interactions || 0;
+    const engagementRate = instagramData.insights?.engagement_rate || 0;
+    const totalLikesRecent = instagramRecentContent.reduce((sum: number, item: Record<string, any>) => sum + (item.likes || 0), 0);
+    const totalCommentsRecent = instagramRecentContent.reduce((sum: number, item: Record<string, any>) => sum + (item.comments || 0), 0);
+    const avgLikesRecent = instagramRecentContent.length > 0
+      ? Math.round(totalLikesRecent / instagramRecentContent.length)
+      : 0;
+    const avgCommentsRecent = instagramRecentContent.length > 0
+      ? Math.round(totalCommentsRecent / instagramRecentContent.length)
+      : 0;
+
+    return {
+      totalPosts,
+      followers,
+      reach,
+      impressions,
+      engagementRate,
+      totalEngagement,
+      avgLikes: avgLikesRecent,
+      avgComments: avgCommentsRecent,
+      totalLikes: totalLikesRecent,
+      totalComments: totalCommentsRecent,
+      estimatedReach: reach,
+      lifetimeTotals: {
+        posts: totalPosts,
+        followers,
+      },
+    };
+  })() : null;
+
+  const youtubeRecentContent = youtubeData?.recentVideos?.map((video: any) => ({
+    id: video.id,
+    title: video.title,
+    description: video.description,
+    thumbnailUrl: video.thumbnail,
+    views: parseInt(video.views ?? video.statistics?.viewCount ?? '0', 10),
+    likes: parseInt(video.likes ?? video.statistics?.likeCount ?? '0', 10),
+    comments: parseInt(video.comments ?? video.statistics?.commentCount ?? '0', 10),
+    publishedAt: video.publishedAt,
+    url: `https://www.youtube.com/watch?v=${video.id}`,
+  })) || [];
+
+  const youtubeTopContent = (youtubeData?.topVideos?.map((video: any) => ({
+    id: video.id,
+    title: video.title,
+    thumbnailUrl: video.thumbnail,
+    views: video.views || 0,
+    likes: video.likes || 0,
+    comments: video.comments || 0,
+    publishedAt: video.publishedAt,
+    url: `https://www.youtube.com/watch?v=${video.id}`,
+  })) || youtubeRecentContent.slice())
+    .slice(0, 5);
+
+  const youtubeBestTime = computeBestTime(youtubeRecentContent, 'publishedAt');
+  const youtubeCommentStats = computeCommentStats(youtubeRecentContent);
+
+  const youtubeMetrics = youtubeData ? (() => {
+    const totalVideos = youtubeData.channel?.videoCount || 0;
+    const subscribers = youtubeData.channel?.subscriberCount || 0;
+    const analyticsViews = youtubeData.analytics?.views || 0;
+    const watchTime = youtubeData.analytics?.estimatedMinutesWatched || 0;
+    const averageViewDuration = youtubeData.analytics?.averageViewDuration || 0;
+    const subscribersGained = youtubeData.analytics?.subscribersGained || 0;
+    const subscribersLost = youtubeData.analytics?.subscribersLost || 0;
+    const impressions = youtubeData.analytics?.impressions || 0;
+    const ctr = youtubeData.analytics?.impressionClickThroughRate || 0;
+    const totalChannelViews = parseInt(youtubeData.channel?.viewCount || '0', 10);
+    const totalLikesRecent = youtubeRecentContent.reduce((sum: number, item: Record<string, any>) => sum + (item.likes || 0), 0);
+    const totalCommentsRecent = youtubeRecentContent.reduce((sum: number, item: Record<string, any>) => sum + (item.comments || 0), 0);
+    const aggregatedLikes = (youtubeData.analytics?.likes || 0) + totalLikesRecent;
+    const aggregatedComments = (youtubeData.analytics?.comments || 0) + totalCommentsRecent;
+
+    const avgViewsRecent = youtubeRecentContent.length > 0
+      ? Math.round(youtubeRecentContent.reduce((sum: number, item: Record<string, any>) => sum + (item.views || 0), 0) / youtubeRecentContent.length)
+      : 0;
+    const avgViewsLifetime = totalVideos > 0 ? Math.round(totalChannelViews / totalVideos) : 0;
+    const avgLikesRecent = youtubeRecentContent.length > 0
+      ? Math.round(totalLikesRecent / youtubeRecentContent.length)
+      : 0;
+
+    return {
+      totalVideos,
+      subscribers,
+      views: analyticsViews,
+      watchTime,
+      averageViewDuration,
+      subscribersGained,
+      subscribersLost,
+      impressions,
+      ctr,
+      avgViews: avgViewsRecent || avgViewsLifetime,
+      avgLikes: avgLikesRecent,
+      totalLikes: aggregatedLikes,
+      totalComments: aggregatedComments,
+      engagementRate: youtubeData.analytics?.engagementRate || 0,
+      lifetimeTotals: {
+        views: totalChannelViews,
+        comments: aggregatedComments,
+        likes: aggregatedLikes,
+      },
+    };
+  })() : null;
+
   const combinedAnalytics = {
     platforms: {
       instagram: {
@@ -186,23 +404,12 @@ async function fetchCombinedAnalytics(
             posts: instagramData.account?.media_count || 0,
             profilePicture: instagramData.account?.profile_picture_url,
           },
-          metrics: {
-            reach: instagramData.insights?.reach || 0,
-            impressions: instagramData.insights?.impressions || 0,
-            profileViews: instagramData.insights?.profile_views || 0,
-            websiteClicks: instagramData.insights?.website_clicks || 0,
-            engagement: {
-              total: instagramData.insights?.total_interactions || 0,
-              likes: instagramData.insights?.likes || 0,
-              comments: instagramData.insights?.comments || 0,
-              shares: instagramData.insights?.shares || 0,
-              saves: instagramData.insights?.saves || 0,
-              rate: instagramData.insights?.engagement_rate || 0,
-            }
-          },
-          recentContent: instagramData.recent_media?.slice(0, 5) || [],
-          topContent: [],
-        } : null
+          metrics: instagramMetrics,
+          recentContent: instagramRecentContent,
+          topContent: instagramTopContent,
+          commentStats: instagramCommentStats,
+          bestTime: instagramBestTime,
+        } : null,
       },
       youtube: {
         connected: !!youtubeData,
@@ -216,76 +423,56 @@ async function fetchCombinedAnalytics(
             thumbnail: youtubeData.channel?.thumbnailUrl,
             handle: youtubeData.channel?.channelHandle,
           },
-          metrics: {
-            views: youtubeData.analytics?.views || 0,
-            watchTime: youtubeData.analytics?.estimatedMinutesWatched || 0,
-            averageViewDuration: youtubeData.analytics?.averageViewDuration || 0,
-            subscribersGained: youtubeData.analytics?.subscribersGained || 0,
-            subscribersLost: youtubeData.analytics?.subscribersLost || 0,
-            impressions: youtubeData.analytics?.impressions || 0,
-            ctr: youtubeData.analytics?.impressionClickThroughRate || 0,
-            engagement: {
-              likes: youtubeData.analytics?.likes || 0,
-              dislikes: youtubeData.analytics?.dislikes || 0,
-              comments: youtubeData.analytics?.comments || 0,
-              shares: youtubeData.analytics?.shares || 0,
-              rate: youtubeData.analytics?.engagementRate || 0,
-            }
-          },
-          recentContent: youtubeData.recentVideos?.slice(0, 5) || [],
-          topContent: youtubeData.topVideos?.slice(0, 5) || [],
-        } : null
-      }
+          metrics: youtubeMetrics,
+          recentContent: youtubeRecentContent,
+          topContent: youtubeTopContent,
+          commentStats: youtubeCommentStats,
+          bestTime: youtubeBestTime,
+        } : null,
+      },
     },
-    
-    // Combined metrics for comparison
+
     comparison: {
       audience: {
-        instagram: instagramData?.account?.followers_count || 0,
-        youtube: youtubeData?.channel?.subscriberCount || 0,
-        total: (instagramData?.account?.followers_count || 0) + (youtubeData?.channel?.subscriberCount || 0),
+        instagram: instagramMetrics?.followers || 0,
+        youtube: youtubeMetrics?.subscribers || 0,
+        total: (instagramMetrics?.followers || 0) + (youtubeMetrics?.subscribers || 0),
       },
       reach: {
-        instagram: instagramData?.insights?.reach || 0,
-        youtube: youtubeData?.analytics?.views || 0,
-        total: (instagramData?.insights?.reach || 0) + (youtubeData?.analytics?.views || 0),
+        instagram: instagramMetrics?.reach || 0,
+        youtube: youtubeMetrics?.views || 0,
+        total: (instagramMetrics?.reach || 0) + (youtubeMetrics?.views || 0),
       },
       engagement: {
         instagram: {
-          total: instagramData?.insights?.total_interactions || 0,
-          rate: instagramData?.insights?.engagement_rate || 0,
+          total: instagramMetrics?.totalEngagement || 0,
+          rate: instagramMetrics?.engagementRate || 0,
         },
         youtube: {
-          total: (youtubeData?.analytics?.likes || 0) + (youtubeData?.analytics?.comments || 0) + (youtubeData?.analytics?.shares || 0),
-          rate: youtubeData?.analytics?.engagementRate || 0,
-        }
+          total: (youtubeMetrics?.totalLikes || 0) + (youtubeMetrics?.totalComments || 0),
+          rate: youtubeMetrics?.engagementRate || 0,
+        },
       },
       content: {
         instagram: {
-          posts: instagramData?.account?.media_count || 0,
-          recent: instagramData?.recent_media?.length || 0,
+          posts: instagramMetrics?.totalPosts || 0,
+          recent: instagramRecentContent.length,
         },
         youtube: {
-          videos: youtubeData?.channel?.videoCount || 0,
-          recent: youtubeData?.recentVideos?.length || 0,
-        }
-      }
+          videos: youtubeMetrics?.totalVideos || 0,
+          recent: youtubeRecentContent.length,
+        },
+      },
     },
 
-    // Time series data for charts (combine both platforms)
     timeSeries: {
       instagram: {},
       youtube: youtubeData?.timeSeriesData || [],
-      combined: combineTimeSeries(
-        {},
-        youtubeData?.timeSeriesData || []
-      )
+      combined: combineTimeSeries({}, youtubeData?.timeSeriesData || []),
     },
 
-    // Performance insights
     insights: generateCombinedInsights(instagramData, youtubeData),
 
-    // Metadata
     period,
     dateRange: youtubeData?.dateRange || {
       startDate: customStartDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],

@@ -7,7 +7,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Social MM - Multi-Platform Social Media Management',
+  title: 'Social OS - Multi-Platform Social Media Management',
   description: 'Manage your Instagram, Facebook, and YouTube content from one dashboard',
 };
 

@@ -79,6 +79,9 @@ export async function GET(request: NextRequest) {
         case 'month':
           startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           break;
+        case 'lifetime':
+          startDate = new Date('2006-01-01T00:00:00Z');
+          break;
         case '3months':
           startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
           break;
