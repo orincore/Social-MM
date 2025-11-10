@@ -11,13 +11,17 @@ import { r2Storage } from '@/lib/r2-storage';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('YouTube Publish API called');
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
+      console.log('YouTube Publish: No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { 
+    console.log('YouTube Publish: Request body:', body);
+    
+    let { 
       title, 
       description, 
       tags = [], 
@@ -29,7 +33,35 @@ export async function POST(request: NextRequest) {
       contentId 
     } = body;
 
+    // If contentId is provided but other fields are missing, fetch from database
+    if (contentId && (!title || !description || !r2Key)) {
+      console.log('YouTube Publish: Fetching content data from database');
+      await connectDB();
+      
+      const content = await Content.findById(contentId);
+      if (!content) {
+        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+      }
+      
+      title = title || content.title || 'Untitled Video';
+      description = description || content.description || content.caption || 'No description';
+      tags = tags.length > 0 ? tags : (content.tags || []);
+      
+      // Extract r2Key from mediaUrl if not provided
+      if (!r2Key && content.mediaUrl) {
+        r2Key = content.mediaUrl.replace(/^https?:\/\/[^\/]+\//, '');
+      }
+      
+      console.log('YouTube Publish: Content data fetched:', {
+        title,
+        description,
+        tags,
+        r2Key
+      });
+    }
+
     if (!title || !description || !r2Key) {
+      console.log('YouTube Publish: Missing required fields');
       return NextResponse.json({ 
         error: 'Missing required fields: title, description, r2Key' 
       }, { status: 400 });

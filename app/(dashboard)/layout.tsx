@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Zap, Plus, User, LogOut, Crown } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Zap, Plus, User, LogOut, Crown, PenTool } from 'lucide-react';
 import ClientOnly from '@/components/client-only';
 import { usePhoneCheck } from '@/lib/usePhoneCheck';
 
@@ -52,8 +52,15 @@ export default function DashboardLayout({
         <nav className="mt-6">
           <div className="px-3">
             <Link
-              href="/dashboard/calendar"
+              href="/dashboard/content/create"
               className="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <PenTool className="h-5 w-5 mr-3" />
+              Create Content
+            </Link>
+            <Link
+              href="/dashboard/calendar"
+              className="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors mt-1"
             >
               <Calendar className="h-5 w-5 mr-3" />
               Calendar

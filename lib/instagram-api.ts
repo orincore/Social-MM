@@ -1,6 +1,7 @@
 // Instagram Graph API integration
-const INSTAGRAM_API_BASE = 'https://graph.instagram.com';
+// Note: For publishing content, we need to use Facebook Graph API with Instagram Business Account
 const FACEBOOK_API_BASE = 'https://graph.facebook.com/v18.0';
+const INSTAGRAM_API_BASE = 'https://graph.instagram.com';
 
 export interface InstagramAccount {
   id: string;
@@ -145,18 +146,48 @@ export class InstagramAPI {
     }
   }
 
-  // Post Image to Instagram
-  async postImage(imageUrl: string, caption: string): Promise<string> {
+  // Post Image to Instagram (requires Instagram Business Account)
+  async postImage(imageUrl: string, caption: string, instagramAccountId?: string): Promise<string> {
     try {
-      // Step 1: Create media object
+      // First, get the Instagram Business Account ID if not provided
+      if (!instagramAccountId) {
+        const accountResponse = await fetch(
+          `${FACEBOOK_API_BASE}/me/accounts?access_token=${this.accessToken}`
+        );
+        
+        if (!accountResponse.ok) {
+          throw new Error(`Facebook API error: ${accountResponse.status}`);
+        }
+        
+        const accountData = await accountResponse.json();
+        const page = accountData.data?.[0];
+        
+        if (!page) {
+          throw new Error('No Facebook page found. Instagram Business Account requires a connected Facebook page.');
+        }
+        
+        // Get Instagram Business Account from the page
+        const igAccountResponse = await fetch(
+          `${FACEBOOK_API_BASE}/${page.id}?fields=instagram_business_account&access_token=${this.accessToken}`
+        );
+        
+        const igAccountData = await igAccountResponse.json();
+        instagramAccountId = igAccountData.instagram_business_account?.id;
+        
+        if (!instagramAccountId) {
+          throw new Error('No Instagram Business Account found. Please connect an Instagram Business Account to your Facebook page.');
+        }
+      }
+
+      // Step 1: Create media object using Facebook Graph API
       const createResponse = await fetch(
-        `${INSTAGRAM_API_BASE}/me/media`,
+        `${FACEBOOK_API_BASE}/${instagramAccountId}/media`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: JSON.stringify({
+          body: new URLSearchParams({
             image_url: imageUrl,
             caption: caption,
             access_token: this.accessToken,
@@ -165,7 +196,8 @@ export class InstagramAPI {
       );
 
       if (!createResponse.ok) {
-        throw new Error(`Instagram API error: ${createResponse.status}`);
+        const errorText = await createResponse.text();
+        throw new Error(`Instagram API error: ${createResponse.status} - ${errorText}`);
       }
 
       const createData = await createResponse.json();
@@ -173,13 +205,13 @@ export class InstagramAPI {
 
       // Step 2: Publish the media
       const publishResponse = await fetch(
-        `${INSTAGRAM_API_BASE}/me/media_publish`,
+        `${FACEBOOK_API_BASE}/${instagramAccountId}/media_publish`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: JSON.stringify({
+          body: new URLSearchParams({
             creation_id: creationId,
             access_token: this.accessToken,
           }),
@@ -187,7 +219,8 @@ export class InstagramAPI {
       );
 
       if (!publishResponse.ok) {
-        throw new Error(`Instagram API error: ${publishResponse.status}`);
+        const errorText = await publishResponse.text();
+        throw new Error(`Instagram API error: ${publishResponse.status} - ${errorText}`);
       }
 
       const publishData = await publishResponse.json();
@@ -198,42 +231,131 @@ export class InstagramAPI {
     }
   }
 
-  // Post Video/Reel to Instagram
-  async postVideo(videoUrl: string, caption: string, isReel: boolean = false): Promise<string> {
+  // Post Video/Reel to Instagram (requires Instagram Business Account)
+  // Default to Reel since we're only posting Reels and Shorts
+  async postVideo(videoUrl: string, caption: string, isReel: boolean = true, instagramAccountId?: string): Promise<string> {
     try {
-      // Step 1: Create media object
+      // First, get the Instagram Business Account ID if not provided
+      if (!instagramAccountId) {
+        const accountResponse = await fetch(
+          `${FACEBOOK_API_BASE}/me/accounts?access_token=${this.accessToken}`
+        );
+        
+        if (!accountResponse.ok) {
+          throw new Error(`Facebook API error: ${accountResponse.status}`);
+        }
+        
+        const accountData = await accountResponse.json();
+        const page = accountData.data?.[0];
+        
+        if (!page) {
+          throw new Error('No Facebook page found. Instagram Business Account requires a connected Facebook page.');
+        }
+        
+        // Get Instagram Business Account from the page
+        const igAccountResponse = await fetch(
+          `${FACEBOOK_API_BASE}/${page.id}?fields=instagram_business_account&access_token=${this.accessToken}`
+        );
+        
+        const igAccountData = await igAccountResponse.json();
+        instagramAccountId = igAccountData.instagram_business_account?.id;
+        
+        if (!instagramAccountId) {
+          throw new Error('No Instagram Business Account found. Please connect an Instagram Business Account to your Facebook page.');
+        }
+      }
+
+      // Step 1: Create media object using Facebook Graph API
+      // Try REELS first, fallback to VIDEO if it fails
+      const createParams = new URLSearchParams({
+        video_url: videoUrl,
+        caption: caption,
+        media_type: isReel ? 'REELS' : 'VIDEO',
+        access_token: this.accessToken,
+      });
+      
+      console.log('Creating media with type:', isReel ? 'REELS' : 'VIDEO');
+
       const createResponse = await fetch(
-        `${INSTAGRAM_API_BASE}/me/media`,
+        `${FACEBOOK_API_BASE}/${instagramAccountId}/media`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: JSON.stringify({
-            video_url: videoUrl,
-            caption: caption,
-            media_type: isReel ? 'REELS' : 'VIDEO',
-            access_token: this.accessToken,
-          }),
+          body: createParams,
         }
       );
 
       if (!createResponse.ok) {
-        throw new Error(`Instagram API error: ${createResponse.status}`);
+        const errorText = await createResponse.text();
+        throw new Error(`Instagram API error: ${createResponse.status} - ${errorText}`);
       }
 
       const createData = await createResponse.json();
       const creationId = createData.id;
 
-      // Step 2: Publish the media
+      // Step 2: Wait for media to be ready and then publish
+      console.log('Waiting for media to be ready for publishing...');
+      
+      // Poll the media status until it's ready (max 60 seconds)
+      const maxAttempts = 12; // 12 attempts * 5 seconds = 60 seconds max
+      let attempt = 0;
+      let isReady = false;
+      
+      while (attempt < maxAttempts && !isReady) {
+        // Wait 5 seconds before checking
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        attempt++;
+        
+        console.log(`Checking media status (attempt ${attempt}/${maxAttempts})...`);
+        
+        // Check if media is ready
+        const statusResponse = await fetch(
+          `${FACEBOOK_API_BASE}/${creationId}?fields=status_code&access_token=${this.accessToken}`
+        );
+        
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          console.log('Media status:', statusData);
+          
+          // Status codes: EXPIRED, ERROR, FINISHED, IN_PROGRESS, PUBLISHED
+          if (statusData.status_code === 'FINISHED') {
+            isReady = true;
+            break;
+          } else if (statusData.status_code === 'ERROR' || statusData.status_code === 'EXPIRED') {
+            // Get more detailed error information
+            const errorResponse = await fetch(
+              `${FACEBOOK_API_BASE}/${creationId}?fields=status_code,status&access_token=${this.accessToken}`
+            );
+            
+            let errorDetails = '';
+            if (errorResponse.ok) {
+              const errorData = await errorResponse.json();
+              console.log('Detailed error info:', errorData);
+              errorDetails = errorData.status ? ` - ${errorData.status}` : '';
+            }
+            
+            throw new Error(`Media processing failed with status: ${statusData.status_code}${errorDetails}. This usually means the video format is not compatible with Instagram Reels. Please try a different video file (MP4 format, vertical orientation, max 60 seconds).`);
+          }
+        }
+      }
+      
+      if (!isReady) {
+        throw new Error('Media processing timeout. Please try again later.');
+      }
+      
+      console.log('Media is ready, publishing...');
+
+      // Step 3: Publish the media
       const publishResponse = await fetch(
-        `${INSTAGRAM_API_BASE}/me/media_publish`,
+        `${FACEBOOK_API_BASE}/${instagramAccountId}/media_publish`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: JSON.stringify({
+          body: new URLSearchParams({
             creation_id: creationId,
             access_token: this.accessToken,
           }),
@@ -241,10 +363,12 @@ export class InstagramAPI {
       );
 
       if (!publishResponse.ok) {
-        throw new Error(`Instagram API error: ${publishResponse.status}`);
+        const errorText = await publishResponse.text();
+        throw new Error(`Instagram API error: ${publishResponse.status} - ${errorText}`);
       }
 
       const publishData = await publishResponse.json();
+      console.log('Successfully published to Instagram with ID:', publishData.id);
       return publishData.id;
     } catch (error) {
       console.error('Error posting video to Instagram:', error);

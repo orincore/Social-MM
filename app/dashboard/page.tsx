@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink, PenTool } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { DashboardSkeleton, AnalyticsCardSkeleton } from '@/components/ui/skeleton';
 import { formatNumber, getRelativeTime } from '@/lib/utils';
@@ -413,20 +413,27 @@ export default function DashboardPage() {
                 {/* Quick Actions */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Link
+                      href="/dashboard/content/create"
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-center flex items-center justify-center gap-2"
+                    >
+                      <PenTool className="w-4 h-4" />
+                      Create Content
+                    </Link>
                     <Link
                       href="/dashboard/analytics/combined"
                       className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-center flex items-center justify-center gap-2"
                     >
                       <BarChart3 className="w-4 h-4" />
-                      View Combined Analytics
+                      View Analytics
                     </Link>
                     <Link
                       href="/dashboard/calendar"
                       className="bg-green-50 hover:bg-green-100 text-green-700 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-center flex items-center justify-center gap-2"
                     >
                       <Calendar className="w-4 h-4" />
-                      Content Calendar
+                      Calendar
                     </Link>
                     <Link
                       href="/dashboard/settings"

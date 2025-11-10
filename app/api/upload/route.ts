@@ -2,32 +2,59 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { r2Storage } from '@/lib/r2-storage';
+import { localStorage } from '@/lib/local-storage';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Upload API called');
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
+      console.log('Upload: No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    console.log('Upload: Session found for user:', session.user.email);
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const type = formData.get('type') as string || 'image';
+    let type = formData.get('type') as string;
+
+    console.log('Upload: File received:', {
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type,
+      type: type
+    });
 
     if (!file) {
+      console.log('Upload: No file provided');
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Validate file type
-    const allowedTypes = {
-      image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-      video: ['video/mp4', 'video/quicktime', 'video/x-msvideo']
-    };
+    // Auto-detect file type if not provided
+    if (!type) {
+      if (file.type.startsWith('video/')) {
+        type = 'video';
+      } else if (file.type.startsWith('image/')) {
+        type = 'image';
+      } else {
+        type = 'image'; // default fallback
+      }
+    }
 
-    const fileType = type === 'video' ? 'video' : 'image';
-    if (!allowedTypes[fileType].includes(file.type)) {
+    // Since we only accept videos for Reels and Shorts
+    const allowedTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/avi', 'video/mov', 'video/webm', 'video/mkv'];
+    const fileType = 'video'; // Always video
+    console.log('Upload: File type validation:', {
+      fileType,
+      actualFileType: file.type,
+      allowedTypes: allowedTypes
+    });
+    
+    if (!allowedTypes.includes(file.type)) {
+      console.log('Upload: Invalid file type');
       return NextResponse.json({ 
-        error: `Invalid file type. Allowed types: ${allowedTypes[fileType].join(', ')}` 
+        error: `Invalid file type. Allowed types: ${allowedTypes.join(', ')}` 
       }, { status: 400 });
     }
 
@@ -41,23 +68,86 @@ export async function POST(request: NextRequest) {
 
     // Generate unique file key
     const userId = session.user.email.replace('@', '_').replace('.', '_');
-    const fileKey = r2Storage.generateFileKey(userId, file.name, fileType);
+    
+    // Check if R2 is configured
+    const isR2Configured = process.env.R2_BUCKET_NAME && 
+                          process.env.R2_ENDPOINT && 
+                          process.env.R2_ACCESS_KEY_ID && 
+                          process.env.R2_SECRET_ACCESS_KEY;
 
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Upload to R2
-    const fileUrl = await r2Storage.uploadFile(
-      fileKey,
-      buffer,
-      file.type,
-      {
-        originalName: file.name,
-        uploadedBy: session.user.email,
-        uploadedAt: new Date().toISOString(),
-        fileSize: file.size.toString()
+    let fileUrl: string;
+    let fileKey: string;
+
+    // Try R2 first, fallback to local storage if it fails
+    if (isR2Configured) {
+      try {
+        console.log('Upload: Using R2 storage...');
+        fileKey = r2Storage.generateFileKey(userId, file.name, fileType);
+        
+        // Sanitize metadata values for R2 headers (remove invalid characters)
+        const sanitizeHeaderValue = (value: string) => {
+          return value.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
+        };
+        
+        fileUrl = await r2Storage.uploadFile(
+          fileKey,
+          buffer,
+          file.type,
+          {
+            originalname: sanitizeHeaderValue(file.name), // Changed key name and sanitized value
+            uploadedby: sanitizeHeaderValue(session.user.email),
+            uploadedat: new Date().toISOString().replace(/[^\w\-]/g, '_'), // Sanitize ISO string
+            filesize: file.size.toString()
+          }
+        );
+        console.log('Upload: R2 upload successful, URL:', fileUrl);
+      } catch (r2Error: any) {
+        console.log('Upload: R2 failed, falling back to local storage:', r2Error?.message || 'Unknown error');
+        // Fallback to local storage
+        fileKey = localStorage.generateFileKey(userId, file.name, fileType);
+        
+        const sanitizeHeaderValue = (value: string) => {
+          return value.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
+        };
+        
+        fileUrl = await localStorage.uploadFile(
+          fileKey,
+          buffer,
+          file.type,
+          {
+            originalname: sanitizeHeaderValue(file.name),
+            uploadedby: sanitizeHeaderValue(session.user.email),
+            uploadedat: new Date().toISOString().replace(/[^\w\-]/g, '_'),
+            filesize: file.size.toString()
+          }
+        );
+        console.log('Upload: Local storage fallback successful, URL:', fileUrl);
       }
-    );
+    } else {
+      console.log('Upload: R2 not configured, using local storage...');
+      fileKey = localStorage.generateFileKey(userId, file.name, fileType);
+      
+      // Use same sanitization for consistency
+      const sanitizeHeaderValue = (value: string) => {
+        return value.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, '_');
+      };
+      
+      fileUrl = await localStorage.uploadFile(
+        fileKey,
+        buffer,
+        file.type,
+        {
+          originalname: sanitizeHeaderValue(file.name),
+          uploadedby: sanitizeHeaderValue(session.user.email),
+          uploadedat: new Date().toISOString().replace(/[^\w\-]/g, '_'),
+          filesize: file.size.toString()
+        }
+      );
+      console.log('Upload: Local storage upload successful, URL:', fileUrl);
+    }
 
     return NextResponse.json({
       success: true,
@@ -71,9 +161,25 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Upload error:', error);
+    
+    // Check if it's an R2 configuration error
+    if (error.message?.includes('The AWS Access Key Id you provided does not exist')) {
+      return NextResponse.json({
+        error: 'Invalid R2 credentials. Please check your R2 configuration.',
+        details: 'Access key not found'
+      }, { status: 500 });
+    }
+    
+    if (error.message?.includes('SignatureDoesNotMatch')) {
+      return NextResponse.json({
+        error: 'Invalid R2 credentials. Please check your R2 secret key.',
+        details: 'Signature mismatch'
+      }, { status: 500 });
+    }
+    
     return NextResponse.json({
       error: 'Failed to upload file',
-      details: error.message
+      details: error.message || 'Unknown error'
     }, { status: 500 });
   }
 }

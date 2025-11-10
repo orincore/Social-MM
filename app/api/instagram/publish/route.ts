@@ -10,15 +10,19 @@ import { r2Storage } from '@/lib/r2-storage';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Instagram Publish API called');
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
+      console.log('Instagram Publish: No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await connectDB();
 
     const body = await request.json();
-    const { 
+    console.log('Instagram Publish: Request body:', body);
+    
+    let { 
       contentId, 
       mediaUrl, 
       caption, 
@@ -27,16 +31,62 @@ export async function POST(request: NextRequest) {
       scheduledAt 
     } = body;
 
+    // If contentId is provided but other fields are missing, fetch from database
+    if (contentId && (!mediaUrl || !caption)) {
+      console.log('Instagram Publish: Fetching content data from database');
+      const content = await Content.findById(contentId);
+      if (!content) {
+        return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+      }
+      
+      mediaUrl = mediaUrl || content.mediaUrl;
+      caption = caption || content.caption;
+      
+      console.log('Instagram Publish: Content data fetched:', {
+        mediaUrl,
+        caption
+      });
+    }
+
+    // Validate required fields
+    if (!mediaUrl || !caption) {
+      console.log('Instagram Publish: Missing required fields');
+      return NextResponse.json({ 
+        error: 'Missing required fields: mediaUrl and caption' 
+      }, { status: 400 });
+    }
+
+    // Since we're only posting Reels, always set as VIDEO and isReel = true
+    mediaType = 'VIDEO';
+    isReel = true;
+
+    console.log('Instagram Publish: Media type set to VIDEO (Reel):', mediaType);
+
+    // Get user first
+    const User = (await import('@/models/User')).default;
+    const user = await User.findOne({ email: session.user.email });
+    if (!user) {
+      console.log('Instagram Publish: User not found');
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     // Find the user's Instagram account
     const instagramAccount = await InstagramAccount.findOne({ 
-      userEmail: session.user.email 
+      userId: user._id,
+      isActive: true
     });
 
     if (!instagramAccount) {
+      console.log('Instagram Publish: Instagram account not connected');
       return NextResponse.json({ 
         error: 'Instagram account not connected' 
       }, { status: 400 });
     }
+
+    console.log('Instagram Publish: Found Instagram account:', {
+      username: instagramAccount.username,
+      accountType: instagramAccount.accountType
+    });
 
     // Initialize Instagram API
     const instagramAPI = new InstagramAPI(instagramAccount.accessToken);
@@ -44,11 +94,24 @@ export async function POST(request: NextRequest) {
     let publishedPostId: string;
 
     try {
-      // Publish based on media type
-      if (mediaType === 'VIDEO' || isReel) {
-        publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, isReel);
-      } else {
-        publishedPostId = await instagramAPI.postImage(mediaUrl, caption);
+      console.log('Instagram Publish: Starting publish process...', {
+        mediaType,
+        isReel,
+        mediaUrl,
+        captionLength: caption.length
+      });
+
+      // Try publishing as Reel first, fallback to regular video if it fails
+      try {
+        console.log('Instagram Publish: Attempting to publish as Reel...');
+        publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, true, instagramAccount.instagramId);
+        console.log('Instagram Publish: Successfully published as Reel with ID:', publishedPostId);
+      } catch (reelError: any) {
+        console.log('Instagram Publish: Reel failed, trying as regular video...', reelError.message);
+        
+        // If Reel fails, try as regular video
+        publishedPostId = await instagramAPI.postVideo(mediaUrl, caption, false, instagramAccount.instagramId);
+        console.log('Instagram Publish: Successfully published as regular video with ID:', publishedPostId);
       }
 
       // Update content status if contentId provided
@@ -61,20 +124,25 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Create publish job record
-      await PublishJob.create({
-        userEmail: session.user.email,
-        contentId: contentId || null,
-        platform: 'instagram',
-        status: 'completed',
-        publishedPostId,
-        publishedAt: new Date(),
-        metadata: {
-          mediaType,
-          isReel,
-          caption: caption.substring(0, 100) + (caption.length > 100 ? '...' : '')
-        }
-      });
+      // Create publish job record (only if contentId is provided)
+      if (contentId) {
+        await PublishJob.create({
+          userId: user._id.toString(),
+          contentId: contentId,
+          platform: 'instagram',
+          status: 'completed',
+          scheduledAt: new Date(), // Add required scheduledAt field
+          result: {
+            success: true,
+            postId: publishedPostId
+          },
+          metadata: {
+            mediaType,
+            isReel,
+            caption: caption.substring(0, 100) + (caption.length > 100 ? '...' : '')
+          }
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -84,6 +152,14 @@ export async function POST(request: NextRequest) {
 
     } catch (publishError: any) {
       console.error('Instagram publish error:', publishError);
+      console.error('Error details:', {
+        message: publishError.message,
+        stack: publishError.stack,
+        mediaUrl,
+        caption,
+        mediaType,
+        instagramAccountId: instagramAccount.instagramId
+      });
 
       // Update content status to failed if contentId provided
       if (contentId) {
@@ -93,19 +169,25 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Create failed publish job record
-      await PublishJob.create({
-        userEmail: session.user.email,
-        contentId: contentId || null,
-        platform: 'instagram',
-        status: 'failed',
-        error: publishError.message,
-        metadata: {
-          mediaType,
-          isReel,
-          caption: caption.substring(0, 100) + (caption.length > 100 ? '...' : '')
-        }
-      });
+      // Create failed publish job record (only if contentId is provided)
+      if (contentId) {
+        await PublishJob.create({
+          userId: user._id.toString(),
+          contentId: contentId,
+          platform: 'instagram',
+          status: 'failed',
+          scheduledAt: new Date(), // Add required scheduledAt field
+          result: {
+            success: false,
+            error: publishError.message
+          },
+          metadata: {
+            mediaType,
+            isReel,
+            caption: caption.substring(0, 100) + (caption.length > 100 ? '...' : '')
+          }
+        });
+      }
 
       return NextResponse.json({
         error: 'Failed to publish to Instagram',

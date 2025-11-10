@@ -27,12 +27,25 @@ export class R2Storage {
     metadata?: Record<string, string>
   ): Promise<string> {
     try {
+      // Sanitize metadata to ensure valid header values
+      const sanitizedMetadata: Record<string, string> = {};
+      if (metadata) {
+        Object.entries(metadata).forEach(([k, v]) => {
+          // Ensure key and value are valid for HTTP headers
+          const sanitizedKey = k.toLowerCase().replace(/[^a-z0-9\-]/g, '');
+          const sanitizedValue = v.replace(/[^\x20-\x7E]/g, '').replace(/[\r\n]/g, '');
+          if (sanitizedKey && sanitizedValue) {
+            sanitizedMetadata[sanitizedKey] = sanitizedValue;
+          }
+        });
+      }
+
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: file,
         ContentType: contentType,
-        Metadata: metadata,
+        Metadata: sanitizedMetadata,
       });
 
       await this.client.send(command);
