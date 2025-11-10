@@ -9,6 +9,7 @@ interface AIPrediction {
   hashtags?: string[];
   caption_variations?: string[];
   content_suggestions?: string[];
+  reasoning?: string;
 }
 
 export class TogetherAI {
