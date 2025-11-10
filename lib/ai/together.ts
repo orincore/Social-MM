@@ -356,4 +356,158 @@ Repurposed for ${toPlatform} (include appropriate formatting, hashtags, and emoj
       throw new Error('Failed to repurpose content');
     }
   }
+
+  static async generateContentIdeas(niche: string, platform: 'instagram' | 'youtube', count: number = 5): Promise<string[]> {
+    const prompt = `Generate ${count} viral content ideas for ${platform} in the ${niche} niche. Make them engaging, trendy, and likely to get high engagement. Format as a JSON array of strings.`;
+    
+    if (!TOGETHER_API_KEY) {
+      console.error('TOGETHER_API_KEY is not set');
+      throw new Error('AI service configuration error');
+    }
+
+    try {
+      const response = await fetch(`${TOGETHER_API_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${TOGETHER_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a creative content strategist. Generate viral content ideas that drive engagement. Always respond with a valid JSON array of strings.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.8,
+          max_tokens: 1000,
+          response_format: { type: 'json_object' },
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const responseContent = data.choices?.[0]?.message?.content;
+      
+      if (!responseContent) {
+        throw new Error('No content in API response');
+      }
+
+      try {
+        const parsedResponse = JSON.parse(responseContent);
+        if (Array.isArray(parsedResponse)) {
+          return parsedResponse;
+        }
+        if (parsedResponse.ideas && Array.isArray(parsedResponse.ideas)) {
+          return parsedResponse.ideas;
+        }
+        return [responseContent];
+      } catch (e) {
+        return responseContent
+          .split('\n')
+          .map((line: string) => line.trim())
+          .filter((line: string) => line.length > 0)
+          .slice(0, count);
+      }
+    } catch (error) {
+      console.error('Error generating content ideas:', error);
+      return [
+        `${niche} tips and tricks`,
+        `Behind the scenes of ${niche}`,
+        `Common ${niche} mistakes to avoid`,
+        `${niche} trends for this year`,
+        `Quick ${niche} tutorial`
+      ];
+    }
+  }
+
+  static async optimizeForEngagement(content: string, platform: 'instagram' | 'youtube', tone: string = 'professional'): Promise<{
+    optimizedContent: string;
+    engagementTips: string[];
+    bestTimeToPost: string;
+    hashtagSuggestions: string[];
+  }> {
+    const prompt = `Optimize this ${platform} content for maximum engagement:
+
+Content: "${content}"
+Platform: ${platform}
+Tone: ${tone}
+
+Provide optimization suggestions including:
+1. Rewritten content optimized for engagement
+2. 3-5 engagement tips
+3. Best time to post
+4. Hashtag suggestions
+
+Format as JSON: {
+  "optimizedContent": "string",
+  "engagementTips": ["tip1", "tip2"],
+  "bestTimeToPost": "string",
+  "hashtagSuggestions": ["#tag1", "#tag2"]
+}`;
+
+    if (!TOGETHER_API_KEY) {
+      throw new Error('AI service configuration error');
+    }
+
+    try {
+      const response = await fetch(`${TOGETHER_API_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${TOGETHER_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert social media growth strategist. Optimize content for maximum engagement and provide actionable insights. Always respond with valid JSON.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1500,
+          response_format: { type: 'json_object' },
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const responseContent = data.choices?.[0]?.message?.content;
+      
+      if (!responseContent) {
+        throw new Error('No content in API response');
+      }
+
+      try {
+        return JSON.parse(responseContent);
+      } catch (e) {
+        console.error('Failed to parse JSON response:', responseContent);
+        return {
+          optimizedContent: content,
+          engagementTips: ['Use engaging hooks', 'Ask questions', 'Include call-to-actions'],
+          bestTimeToPost: 'Peak hours (6-9 PM)',
+          hashtagSuggestions: ['#viral', '#trending', '#content']
+        };
+      }
+    } catch (error) {
+      console.error('Error optimizing for engagement:', error);
+      throw new Error('Failed to optimize content for engagement');
+    }
+  }
 }

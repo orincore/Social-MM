@@ -44,6 +44,11 @@ export function AIOptimizationPanel({
     getOptimalPostingTimes,
   } = useAIOptimization();
 
+  interface ContentIdea {
+    title: string;
+    description: string;
+  }
+
   const [suggestions, setSuggestions] = useState<{
     captions: string[];
     hashtags: string[];
@@ -52,7 +57,7 @@ export function AIOptimizationPanel({
       optimalTime: string;
       reasoning: string;
     };
-    contentIdeas: Array<{ title: string; description: string }>;
+    contentIdeas: ContentIdea[];
     optimalTimes: { times: string[]; reasoning: string };
   }>({
     captions: [],
@@ -110,12 +115,58 @@ export function AIOptimizationPanel({
         reasoning: performance.reasoning ?? ''
       } : undefined;
 
+      // Process content ideas to ensure they're in the correct format
+      const processedContentIdeas = (() => {
+        if (!Array.isArray(gapAnalysis)) return [];
+        
+        return gapAnalysis.map(item => {
+          try {
+            // If it's already in the correct format, return as is
+            if (item && typeof item === 'object' && 'title' in item && 'description' in item) {
+              return {
+                title: String(item.title || 'Content Idea'),
+                description: String(item.description || '')
+              };
+            }
+            
+            // If it's a string, convert to the expected format
+            if (typeof item === 'string') {
+              return { 
+                title: 'Content Idea', 
+                description: item 
+              };
+            }
+            
+            // If it's an object but not in the expected format, try to extract values
+            if (item && typeof item === 'object') {
+              const safeItem = item as Record<string, any>;
+              return {
+                title: String(safeItem.title || safeItem.heading || 'Content Idea'),
+                description: String(safeItem.description || safeItem.content || JSON.stringify(item))
+              };
+            }
+            
+            // Fallback for any other case
+            return { 
+              title: 'Content Idea', 
+              description: String(item) 
+            };
+          } catch (error) {
+            console.error('Error processing content idea:', item, error);
+            return { 
+              title: 'Content Idea', 
+              description: 'Failed to process this content idea' 
+            };
+          }
+        });
+      })();
+
       setSuggestions(prev => ({
         ...prev,
         captions: Array.isArray(captions) ? captions : [],
         hashtags: Array.isArray(hashtags) ? hashtags : [],
         performance: mappedPerformance,
-        contentIdeas: Array.isArray(gapAnalysis) && gapAnalysis.length > 0 ? gapAnalysis : prev.contentIdeas,
+        contentIdeas: processedContentIdeas.length > 0 ? processedContentIdeas : prev.contentIdeas,
         optimalTimes: optimalTimes && typeof optimalTimes === 'object' ? 
           { 
             times: 'optimalTimes' in optimalTimes && Array.isArray(optimalTimes.optimalTimes) 
@@ -418,12 +469,28 @@ export function AIOptimizationPanel({
               <CardContent>
                 {suggestions.contentIdeas.length > 0 ? (
                   <div className="space-y-4">
-                    {suggestions.contentIdeas.map((idea, idx) => (
-                      <div key={idx} className="border-b pb-3 last:border-0 last:pb-0">
-                        <h4 className="font-medium">{idea.title}</h4>
-                        <p className="text-sm text-gray-600">{idea.description}</p>
-                      </div>
-                    ))}
+                    {suggestions.contentIdeas.map((idea, idx) => {
+                      // Handle case where idea is a string (legacy format) or an object with title/description
+                      if (typeof idea === 'string') {
+                        return (
+                          <div key={idx} className="border-b pb-3 last:border-0 last:pb-0">
+                            <p className="text-sm text-gray-600">{idea}</p>
+                          </div>
+                        );
+                      }
+                      
+                      // Handle object format with title and description
+                      return (
+                        <div key={idx} className="border-b pb-3 last:border-0 last:pb-0">
+                          {idea.title && <h4 className="font-medium">{idea.title}</h4>}
+                          <p className="text-sm text-gray-600">
+                            {typeof idea.description === 'string' 
+                              ? idea.description 
+                              : JSON.stringify(idea)}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center p-4 text-gray-500">
