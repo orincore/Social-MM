@@ -109,17 +109,39 @@ export async function POST(request: NextRequest) {
           // Get user with YouTube tokens
           const user = await User.findById(post.userId);
           
+          // Check if YouTube account exists and has valid tokens
+          const youtubeAccount = await YouTubeAccount.findOne({ userId: user._id, isActive: true });
+          
+          // More flexible validation - check for tokens even if connected flag is false
+          const hasValidTokens = user?.youtube?.accessToken && user?.youtube?.refreshToken;
+          const hasYoutubeAccount = youtubeAccount && youtubeAccount.isActive;
+          
           console.log('YouTube publish check:', {
-            userId: post.userId,
+            userId: user._id,
             userFound: !!user,
             youtubeConnected: user?.youtube?.connected,
             hasAccessToken: !!user?.youtube?.accessToken,
             hasRefreshToken: !!user?.youtube?.refreshToken,
-            tokenExpiry: user?.youtube?.tokenExpiresAt
+            tokenExpiry: user?.youtube?.tokenExpiresAt,
+            hasYoutubeAccount: !!youtubeAccount,
+            accountActive: youtubeAccount?.isActive
           });
-
-          if (!user || !user.youtube?.connected || !user.youtube?.accessToken) {
+          
+          if (!user || !hasValidTokens || !hasYoutubeAccount) {
+            console.error('YouTube validation failed:', {
+              hasUser: !!user,
+              hasValidTokens,
+              hasYoutubeAccount,
+              youtubeConnected: user?.youtube?.connected
+            });
             throw new Error('YouTube account not connected or tokens missing');
+          }
+          
+          // If we have valid tokens but connected flag is false, update it
+          if (hasValidTokens && !user.youtube.connected) {
+            console.log('Updating YouTube connected status to true');
+            user.youtube.connected = true;
+            await user.save();
           }
 
           // Check if token is expired and refresh if needed

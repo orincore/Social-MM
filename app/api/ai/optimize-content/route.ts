@@ -60,23 +60,46 @@ export async function POST(req: Request) {
 
         // Generate hashtags
         const hashtagContent = title || caption || description || 'content';
-        const hashtags = await TogetherAI.generateHashtags(hashtagContent, platform, platform === 'instagram' ? 15 : 8);
-        platformResults.hashtags = hashtags;
+        try {
+          const hashtags = await TogetherAI.generateHashtags(hashtagContent, platform, platform === 'instagram' ? 15 : 8);
+          // Ensure we have an array of strings
+          platformResults.hashtags = Array.isArray(hashtags) 
+            ? hashtags.map(tag => typeof tag === 'string' ? tag.replace(/[#]/g, '') : String(tag))
+            : [];
+        } catch (error) {
+          console.error('Error generating hashtags:', error);
+          platformResults.hashtags = [];
+        }
 
         // Generate tags (for YouTube)
         if (platform === 'youtube') {
           try {
-            const tagPrompt = `Generate 25 relevant YouTube tags for content about: "${hashtagContent}". Focus on searchable keywords and trending terms in the ${niche} niche. Return ONLY comma-separated tags without hashtag symbols. Example: fitness, workout, health, motivation, exercise`;
+            const tagPrompt = `Generate 25 relevant YouTube tags for content about: "${hashtagContent}". Focus on searchable keywords and trending terms in the ${niche} niche. Return ONLY a JSON array of tags without hashtag symbols. Example: ["fitness", "workout", "health"]`;
             const generatedTags = await TogetherAI.generateCaption(tagPrompt, platform, 'professional');
             
             // Parse the response and clean the tags
             let tagsList: string[] = [];
             if (generatedTags && generatedTags[0]) {
-              tagsList = generatedTags[0]
-                .split(',')
-                .map((tag: string) => tag.replace(/[#]/g, '').trim())
-                .filter((tag: string) => tag.length > 0 && tag.split(' ').length <= 3)
-                .slice(0, 25);
+              try {
+                // First try to parse as JSON array
+                const parsedTags = JSON.parse(generatedTags[0]);
+                if (Array.isArray(parsedTags)) {
+                  tagsList = parsedTags
+                    .filter((tag: any) => typeof tag === 'string')
+                    .map((tag: string) => tag.replace(/[#]/g, '').trim())
+                    .filter((tag: string) => tag.length > 0 && tag.split(' ').length <= 3)
+                    .slice(0, 25);
+                }
+              } catch (e) {
+                // Fallback to string splitting if JSON parse fails
+                console.log('Failed to parse tags as JSON, falling back to string parsing');
+                tagsList = generatedTags[0]
+                  .replace(/[\[\]"']/g, '') // Remove brackets and quotes
+                  .split(',')
+                  .map((tag: string) => tag.trim())
+                  .filter((tag: string) => tag.length > 0 && tag.split(' ').length <= 3)
+                  .slice(0, 25);
+              }
             }
             
             // If we don't have enough tags, add some default ones based on niche

@@ -136,13 +136,12 @@ export class TogetherAI {
   }
 
   static async generateCaption(content: string, platform: 'instagram' | 'youtube', tone: 'professional' | 'casual' | 'funny' = 'professional'): Promise<string[]> {
-    const prompt = `Generate 3 engaging ${tone} captions for ${platform} about: ${content}. Include relevant emojis and line breaks. Return the captions as a JSON array of strings.`;
+    const prompt = `Generate a ${tone} ${platform} caption for the following content. Return a valid JSON array of strings with 3 caption variations, each under 220 characters. Content: "${content}"`;
     
-    if (!TOGETHER_API_KEY) {
-      console.error('TOGETHER_API_KEY is not set');
-      throw new Error('AI service configuration error');
-    }
-
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     try {
       const response = await fetch(`${TOGETHER_API_URL}/chat/completions`, {
         method: 'POST',
@@ -155,23 +154,27 @@ export class TogetherAI {
           messages: [
             {
               role: 'system',
-              content: 'You are a creative social media expert. Generate engaging captions. Always respond with a valid JSON array of strings.'
+              content: 'You are a creative social media expert. Generate engaging captions. Respond with ONLY a valid JSON array of strings, with no additional text or explanation. Example: ["First caption", "Second caption", "Third caption"]'
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          temperature: 0.8,
+          temperature: 0.7,
           max_tokens: 500,
           response_format: { type: 'json_object' },
-        })
+        }),
+        signal: controller.signal
       });
+      
+      // Clear the timeout since the request completed
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API request failed:', response.status, errorText);
-        throw new Error(`API request failed with status ${response.status}`);
+        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
@@ -181,31 +184,87 @@ export class TogetherAI {
         throw new Error('No content in API response');
       }
 
-      // Try to parse the response as JSON
+      // Helper function to extract and clean string array from various formats
+      const extractStringArray = (input: any): string[] => {
+        // If input is already an array of strings, return it
+        if (Array.isArray(input)) {
+          return input.map(item => String(item).trim()).filter(Boolean);
+        }
+        
+        // If input is a string, try to parse it as JSON
+        if (typeof input === 'string') {
+          try {
+            // Try to parse as JSON first
+            const parsed = JSON.parse(input);
+            if (Array.isArray(parsed)) {
+              return parsed.map(item => String(item).trim()).filter(Boolean);
+            }
+            // Handle object with array properties
+            for (const key of ['captions', 'tags', 'results', 'items']) {
+              if (Array.isArray(parsed[key])) {
+                return parsed[key].map((item: any) => String(item).trim()).filter(Boolean);
+              }
+            }
+            // If it's an object with string values, return its values
+            if (typeof parsed === 'object' && parsed !== null) {
+              return Object.values(parsed)
+                .filter(value => typeof value === 'string')
+                .map(item => String(item).trim())
+                .filter(Boolean);
+            }
+          } catch (e) {
+            // If JSON parsing fails, try to extract array-like strings
+            const arrayMatch = input.match(/\[\s*("[^"]*"|'[^']*'|[^\[\]]*)\s*\]/);
+            if (arrayMatch) {
+              try {
+                const parsedArray = JSON.parse(arrayMatch[0]);
+                if (Array.isArray(parsedArray)) {
+                  return parsedArray.map(item => String(item).trim()).filter(Boolean);
+                }
+              } catch (e) {
+                // If we can't parse as JSON, try to split by commas and clean up
+                return arrayMatch[0]
+                  .replace(/[\[\]"']/g, '')
+                  .split(',')
+                  .map((item: string) => item.trim())
+                  .filter(Boolean);
+              }
+            }
+          }
+          
+          // If we get here and it's a string but not an array, split by newlines or commas
+          return input
+            .split(/[\n,]+/)
+            .map(item => item.trim())
+            .filter(Boolean);
+        }
+        
+        // If input is an object but not an array, try to extract string values
+        if (typeof input === 'object' && input !== null) {
+          return Object.values(input)
+            .filter(value => typeof value === 'string')
+            .map(item => String(item).trim())
+            .filter(Boolean);
+        }
+        
+        // Default fallback
+        return [];
+      };
+
       try {
+        // First try to parse as JSON
         const parsedResponse = JSON.parse(responseContent);
-        // If the response is an array, return it directly
-        if (Array.isArray(parsedResponse)) {
-          return parsedResponse;
-        }
-        // If the response is an object with a 'captions' property
-        if (parsedResponse.captions && Array.isArray(parsedResponse.captions)) {
-          return parsedResponse.captions;
-        }
-        // If the response is an object with a 'result' property
-        if (parsedResponse.result && Array.isArray(parsedResponse.result)) {
-          return parsedResponse.result;
-        }
-        // If we can't find an array in the response, return the content as a single-item array
-        return [responseContent];
+        const result = extractStringArray(parsedResponse);
+        if (result.length > 0) return result.slice(0, 3); // Return max 3 items
       } catch (e) {
-        console.error('Failed to parse JSON response, falling back to text processing');
-        // Fallback: try to split by newlines and filter out empty lines
-        return responseContent
-          .split('\n')
-          .map((line: string) => line.trim())
-          .filter((line: string) => line.length > 0);
+        // If JSON parsing fails, try to extract array from text
+        const result = extractStringArray(responseContent);
+        if (result.length > 0) return result.slice(0, 3);
       }
+      
+      // If we get here, return the original content as a single-item array
+      // but ensure it's properly formatted as an array of strings
+      return [content].filter(Boolean);
     } catch (error) {
       console.error('Error generating captions:', error);
       // Return a fallback caption if there's an error
@@ -303,15 +362,31 @@ Provide the response as a JSON array of content ideas with title and description
   }
 
   static async optimizePostingSchedule(content: string, platform: 'instagram' | 'youtube', historicalData: any[]): Promise<{optimalTimes: string[], reasoning: string}> {
-    const prompt = `Based on the following content and engagement data, suggest the 3 best times to post on ${platform} (in UTC). Consider day of week and hour.
+    const defaultResponse = {
+      optimalTimes: platform === 'instagram' 
+        ? ['Monday 15:00', 'Wednesday 18:00', 'Friday 12:00']
+        : ['Tuesday 18:00', 'Thursday 20:00', 'Saturday 14:00'],
+      reasoning: 'Based on general best practices for optimal engagement times.'
+    };
 
-Content to be posted:
-${content}
+    // If no historical data, return default times
+    if (!historicalData || historicalData.length === 0) {
+      return defaultResponse;
+    }
+
+    // Ensure we don't send too much historical data to avoid hitting token limits
+    const limitedHistoricalData = historicalData.slice(0, 5); // Limit to last 5 data points
+
+    const prompt = `You are a data analyst. Based on this engagement data for ${platform}, recommend 3 optimal posting times in UTC format.
 
 Engagement Data:
-${JSON.stringify(historicalData, null, 2)}
+${JSON.stringify(limitedHistoricalData, null, 2)}
 
-Respond with a JSON object containing: {"optimalTimes": ["Day HH:MM"], "reasoning": "brief explanation"}`;
+Return ONLY this JSON format with no additional text:
+{
+  "optimalTimes": ["Monday 15:00", "Wednesday 18:00", "Friday 12:00"],
+  "reasoning": "Based on peak engagement patterns"
+}`;
 
     try {
       const response = await fetch(`${TOGETHER_API_URL}/chat/completions`, {
@@ -325,26 +400,90 @@ Respond with a JSON object containing: {"optimalTimes": ["Day HH:MM"], "reasonin
           messages: [
             {
               role: 'system',
-              content: 'You are a social media scheduling expert. Analyze engagement patterns to recommend optimal posting times.'
+              content: 'You are a JSON API. You MUST respond with ONLY valid JSON. No explanations, no additional text, just the requested JSON object.'
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          temperature: 0.3,
-          max_tokens: 500,
+          temperature: 0.1,
+          max_tokens: 300,
+          response_format: { type: "json_object" },
         }),
       });
 
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
       const data = await response.json();
-      return JSON.parse(data.choices[0].message.content);
+      const responseContent = data.choices[0]?.message?.content;
+      
+      if (!responseContent) {
+        console.error('Empty response from AI');
+        return defaultResponse;
+      }
+
+      // Enhanced JSON parsing with multiple fallback strategies
+      try {
+        // First, clean the response content
+        let cleanedContent = responseContent.trim();
+        
+        // Remove any markdown code blocks
+        cleanedContent = cleanedContent.replace(/```json\s*|\s*```/g, '');
+        
+        // Remove any leading/trailing text that's not JSON
+        const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleanedContent = jsonMatch[0];
+        }
+        
+        // Try to parse the cleaned JSON
+        const result = JSON.parse(cleanedContent);
+        
+        // Validate the response structure
+        if (result && typeof result === 'object' && result.optimalTimes && Array.isArray(result.optimalTimes) && result.reasoning) {
+          // Ensure optimalTimes has at least one entry
+          if (result.optimalTimes.length > 0) {
+            return {
+              optimalTimes: result.optimalTimes.slice(0, 3), // Limit to 3 times
+              reasoning: String(result.reasoning)
+            };
+          }
+        }
+        
+        console.warn('Invalid response structure from AI:', result);
+        return defaultResponse;
+        
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError);
+        console.error('Raw response:', responseContent);
+        
+        // If the response contains conversational text, return default
+        if (responseContent.toLowerCase().includes("i'm an ai") || 
+            responseContent.toLowerCase().includes("since i") ||
+            responseContent.toLowerCase().includes("i don't") ||
+            responseContent.toLowerCase().includes("i can't")) {
+          console.warn('AI returned conversational response instead of JSON, using defaults');
+          return defaultResponse;
+        }
+        
+        // Last resort: try to extract any time patterns from the text
+        const timePattern = /(\w+day)\s+(\d{1,2}:\d{2})/gi;
+        const matches = responseContent.match(timePattern);
+        if (matches && matches.length > 0) {
+          return {
+            optimalTimes: matches.slice(0, 3),
+            reasoning: 'Extracted from AI response text analysis'
+          };
+        }
+        
+        return defaultResponse;
+      }
     } catch (error) {
       console.error('Error optimizing posting schedule:', error);
-      return {
-        optimalTimes: [],
-        reasoning: 'Not enough data to determine optimal posting times.'
-      };
+      return defaultResponse;
     }
   }
 
