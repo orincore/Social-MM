@@ -727,73 +727,7 @@ export default function DashboardPage() {
           </div>
         </DashboardHeader>
 
-        {/* Demographic Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Gender Distribution Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Users2 className="w-5 h-5 mr-2 text-purple-600" />
-              Gender Distribution
-            </h3>
-            <div className="space-y-3">
-              {demographicData.instagram?.gender?.map((item) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">{item.name}</span>
-                  <span className="text-sm font-semibold text-gray-900">{item.value}%</span>
-                </div>
-              ))}
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden mt-2">
-                <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style={{ width: '100%' }}></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Age Distribution Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <CalendarIcon className="w-5 h-5 mr-2 text-blue-600" />
-              Age Distribution
-            </h3>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={demographicData.instagram?.age || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`${value}%`, '']} />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Top Countries Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <GlobeIcon className="w-5 h-5 mr-2 text-green-600" />
-              Top Countries
-            </h3>
-            <div className="space-y-3">
-              {demographicData.instagram?.countries?.slice(0, 5).map((country, index) => (
-                <div key={country.code} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <div className="flex items-center">
-                      <span className="font-medium text-gray-700 w-6">{index + 1}.</span>
-                      <span className="mr-2">{country.name}</span>
-                    </div>
-                    <span className="font-medium text-gray-900">{country.value}%</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                    <div 
-                      className="bg-green-500 h-1.5 rounded-full" 
-                      style={{ width: `${country.value}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        
 
         {!hasConnectedPlatforms ? (
           // No platforms connected
