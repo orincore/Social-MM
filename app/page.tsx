@@ -56,7 +56,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <div className="relative">
@@ -118,7 +118,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 py-16">
         <div className="text-center">
           <div className="flex justify-center mb-8">
             <div className="flex items-center space-x-4 bg-white/60 backdrop-blur-sm rounded-full px-6 py-3 border border-gray-200">
@@ -408,7 +408,7 @@ export default function HomePage() {
         
         {/* SEO-optimized Footer */}
         <footer className="mt-32 border-t border-gray-200 pt-16 pb-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16">
             <div className="grid lg:grid-cols-4 gap-10 text-sm text-gray-500">
               <div>
                 <div className="flex items-center gap-3 mb-4">

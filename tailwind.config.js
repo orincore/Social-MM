@@ -7,6 +7,22 @@ module.exports = {
   ],
   theme: {
     extend: {
+      maxWidth: {
+        '7xl': '1600px',
+      },
+      screens: {
+        '3xl': '1920px',
+      },
+      container: {
+        center: true,
+        padding: {
+          DEFAULT: '1rem',
+          sm: '1.5rem',
+          lg: '3rem',
+          xl: '4rem',
+          '2xl': '5rem',
+        },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
