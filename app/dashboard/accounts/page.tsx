@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Instagram, Youtube, CheckCircle, XCircle, Loader2, ExternalLink, RefreshCw, Link2Off } from 'lucide-react';
+import { Instagram, Youtube, CheckCircle, XCircle, Loader2, ExternalLink, RefreshCw, Link2Off, Info } from 'lucide-react';
 
 interface AccountDetails {
   username?: string;
@@ -467,6 +467,34 @@ export default function AccountsPage() {
           <p className="text-gray-600">
             Manage your social media accounts and view connection status.
           </p>
+        </div>
+
+        <div className="mb-8 bg-blue-50 border border-blue-100 rounded-xl p-5 flex gap-3">
+          <div className="mt-1">
+            <Info className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="text-sm text-blue-900 leading-relaxed">
+            <p className="font-semibold mb-2">Instagram Business requirement</p>
+            <ol className="list-decimal list-inside space-y-2">
+              <li>Use a Professional (Business or Creator) Instagram profile.</li>
+              <li>In Instagram → Settings &amp; privacy → Accounts Center → Linked accounts, choose “Add accounts”.</li>
+              <li>Log in with the Facebook profile that manages your Facebook Page.</li>
+              <li>Select the Facebook Page to connect and confirm.</li>
+              <li>Return here and complete the Facebook Login prompt so we can sync analytics and publishing.</li>
+            </ol>
+            <p className="mt-2 text-xs text-blue-800">
+              Need extra help? Review the{' '}
+              <a
+                href="https://developers.facebook.com/docs/instagram-api/getting-started"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium"
+              >
+                official Instagram Graph API documentation
+              </a>
+              .
+            </p>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
