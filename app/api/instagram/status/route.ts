@@ -214,6 +214,23 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    if (user.instagram) {
+      user.instagram.connected = false;
+      user.instagram.accessToken = undefined;
+      user.instagram.refreshToken = undefined;
+      user.instagram.tokenExpiresAt = undefined;
+      user.instagram.instagramId = undefined;
+      user.instagram.username = undefined;
+      user.instagram.accountType = undefined;
+      user.instagram.profilePictureUrl = undefined;
+      user.instagram.followersCount = 0;
+      user.instagram.followingCount = 0;
+      user.instagram.mediaCount = 0;
+      user.instagram.biography = undefined;
+      user.instagram.connectedAt = undefined;
+      await user.save();
+    }
+
     await InstagramAccount.deleteMany({ userId: user._id });
 
     // Invalidate analytics cache

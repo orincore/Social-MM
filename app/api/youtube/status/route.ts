@@ -102,6 +102,22 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    if (user.youtube) {
+      user.youtube.connected = false;
+      user.youtube.accessToken = undefined;
+      user.youtube.refreshToken = undefined;
+      user.youtube.tokenExpiresAt = undefined;
+      user.youtube.channelId = undefined;
+      user.youtube.channelTitle = undefined;
+      user.youtube.channelDescription = undefined;
+      user.youtube.thumbnailUrl = undefined;
+      user.youtube.subscriberCount = 0;
+      user.youtube.videoCount = 0;
+      user.youtube.viewCount = 0;
+      user.youtube.connectedAt = undefined;
+      await user.save();
+    }
+
     // Delete YouTube account and all related data
     await YouTubeAccount.deleteMany({ userId: user._id });
 

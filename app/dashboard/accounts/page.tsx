@@ -2,38 +2,37 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Instagram, Youtube, CheckCircle, XCircle, Loader2, ExternalLink, Trash2, RefreshCw } from 'lucide-react';
+import { Instagram, Youtube, CheckCircle, XCircle, Loader2, ExternalLink, RefreshCw, Link2Off } from 'lucide-react';
+
+interface AccountDetails {
+  username?: string;
+  userId?: string;
+  accountType?: string;
+  profilePictureUrl?: string;
+  followersCount?: number;
+  followingCount?: number;
+  mediaCount?: number;
+  biography?: string;
+  website?: string;
+  channelId?: string;
+  channelTitle?: string;
+  channelHandle?: string;
+  subscriberCount?: number;
+  videoCount?: number;
+  viewCount?: number;
+  thumbnailUrl?: string;
+  description?: string;
+  country?: string;
+  connectedAt?: string;
+  lastUpdated?: string;
+  tokenExpired?: boolean;
+  tokenExpiresAt?: string;
+  daysUntilExpiry?: number;
+}
 
 interface AccountStatus {
   connected: boolean;
-  account?: {
-    // Instagram fields
-    username?: string;
-    userId?: string;
-    accountType?: string;
-    profilePictureUrl?: string;
-    followersCount?: number;
-    followingCount?: number;
-    mediaCount?: number;
-    biography?: string;
-    website?: string;
-    
-    // YouTube fields
-    channelId?: string;
-    channelTitle?: string;
-    channelHandle?: string;
-    subscriberCount?: number;
-    videoCount?: number;
-    viewCount?: number;
-    thumbnailUrl?: string;
-    description?: string;
-    country?: string;
-    
-    // Common fields
-    connectedAt?: string;
-    lastUpdated?: string;
-    tokenExpired?: boolean;
-  };
+  account?: AccountDetails;
   error?: string;
 }
 
@@ -51,12 +50,48 @@ export default function AccountsPage() {
       // Fetch Instagram status
       const igResponse = await fetch('/api/instagram/status');
       const igData = await igResponse.json();
-      setInstagramStatus(igData);
+      const normalizedInstagram: AccountStatus = {
+        connected: Boolean(igData?.connected && !igData?.account?.tokenExpired),
+        account: igData?.account ? {
+          ...igData.account,
+          username: igData.account.username || igData.account.instagramId,
+        } : undefined,
+        error: igData?.error,
+      };
+      setInstagramStatus(normalizedInstagram);
 
       // Fetch YouTube status
       const ytResponse = await fetch('/api/youtube/status');
       const ytData = await ytResponse.json();
-      setYoutubeStatus(ytData);
+      const youtubeAccount: AccountDetails | undefined = ytData?.account
+        ? {
+            ...ytData.account,
+            username: ytData.account.channelHandle || ytData.account.channelTitle,
+          }
+        : ytData?.channel
+        ? {
+            username: ytData.channel.channelHandle || ytData.channel.title,
+            channelId: ytData.channel.channelId,
+            channelTitle: ytData.channel.title || ytData.channel.channelTitle,
+            channelHandle: ytData.channel.channelHandle,
+            subscriberCount: ytData.channel.subscriberCount,
+            videoCount: ytData.channel.videoCount,
+            viewCount: ytData.channel.viewCount,
+            thumbnailUrl: ytData.channel.thumbnailUrl,
+            description: ytData.channel.description,
+            country: ytData.channel.country,
+            connectedAt: ytData.channel.connectedAt,
+            lastUpdated: ytData.channel.lastUpdated,
+            tokenExpired: false,
+          }
+        : undefined;
+
+      const normalizedYoutube: AccountStatus = {
+        connected: Boolean(ytData?.connected && youtubeAccount && !youtubeAccount.tokenExpired),
+        account: youtubeAccount,
+        error: ytData?.error,
+      };
+      setYoutubeStatus(normalizedYoutube);
     } catch (error) {
       console.error('Failed to fetch account status:', error);
     }
@@ -101,16 +136,21 @@ export default function AccountsPage() {
       return;
     }
 
-    setLoading({ ...loading, instagram: true });
+    setLoading(prev => ({ ...prev, instagram: true }));
     try {
       const response = await fetch('/api/instagram/status', { method: 'DELETE' });
-      if (response.ok) {
-        setInstagramStatus({ connected: false });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to disconnect Instagram');
       }
+
+      setInstagramStatus({ connected: false });
+      await fetchAccountStatus();
     } catch (error) {
       console.error('Failed to disconnect Instagram:', error);
+      alert('Could not disconnect Instagram. Please try again.');
     } finally {
-      setLoading({ ...loading, instagram: false });
+      setLoading(prev => ({ ...prev, instagram: false }));
     }
   };
 
@@ -119,16 +159,21 @@ export default function AccountsPage() {
       return;
     }
 
-    setLoading({ ...loading, youtube: true });
+    setLoading(prev => ({ ...prev, youtube: true }));
     try {
       const response = await fetch('/api/youtube/status', { method: 'DELETE' });
-      if (response.ok) {
-        setYoutubeStatus({ connected: false });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to disconnect YouTube');
       }
+
+      setYoutubeStatus({ connected: false });
+      await fetchAccountStatus();
     } catch (error) {
       console.error('Failed to disconnect YouTube:', error);
+      alert('Could not disconnect YouTube. Please try again.');
     } finally {
-      setLoading({ ...loading, youtube: false });
+      setLoading(prev => ({ ...prev, youtube: false }));
     }
   };
 
@@ -185,7 +230,7 @@ export default function AccountsPage() {
     isLoading, 
     isRefreshing 
   }: {
-    platform: string;
+    platform: 'instagram' | 'youtube';
     status: AccountStatus;
     icon: any;
     color: string;
@@ -336,11 +381,47 @@ export default function AccountsPage() {
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Trash2 className="w-4 h-4" />
+                <Link2Off className="w-4 h-4" />
               )}
-              Disconnect
+              Unlink
             </button>
           </div>
+
+          {(status.account?.biography || status.account?.description) && (
+            <div className="mt-4 bg-gray-50 border border-gray-100 rounded-lg p-3">
+              {status.account?.biography && (
+                <p className="text-sm text-gray-600 whitespace-pre-line">{status.account.biography}</p>
+              )}
+              {status.account?.description && (
+                <p className="text-sm text-gray-600 whitespace-pre-line">{status.account.description}</p>
+              )}
+            </div>
+          )}
+
+          {status.account?.website && (
+            <a
+              href={status.account.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {status.account.website}
+            </a>
+          )}
+
+          {(status.account?.tokenExpiresAt || typeof status.account?.daysUntilExpiry === 'number') && (
+            <div className="mt-3 text-xs text-gray-500">
+              {status.account?.tokenExpiresAt && (
+                <p>
+                  Token expires on {new Date(status.account.tokenExpiresAt).toLocaleDateString()}
+                </p>
+              )}
+              {typeof status.account?.daysUntilExpiry === 'number' && status.account.daysUntilExpiry >= 0 && (
+                <p>{status.account.daysUntilExpiry} day(s) remaining before token refresh is required.</p>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
