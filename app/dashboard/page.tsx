@@ -675,27 +675,27 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="w-full max-w-[96%] 2xl:max-w-[95%] mx-auto px-2 sm:px-4 py-4 sm:py-6">
-        {/* Header */}
-        <DashboardHeader 
-          title="Dashboard" 
-          description={
-            <span>
-              Welcome back! Here's your social media overview.
-              {combinedAnalytics?.fromCache && (
-                <span className="ml-2 text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full border border-yellow-100">
-                  {combinedAnalytics.isStale ? 'Updating...' : 'Cached'}
-                </span>
-              )}
-            </span>
-          }
-          className="mb-6"
-        >
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col gap-8">
+          <DashboardHeader
+            title="Dashboard"
+            description={
+              <span>
+                Welcome back! Here's your social media overview.
+                {combinedAnalytics?.fromCache && (
+                  <span className="ml-2 text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full border border-yellow-100">
+                    {combinedAnalytics.isStale ? 'Updating...' : 'Cached'}
+                  </span>
+                )}
+              </span>
+            }
+            className="w-full"
+          >
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`w-4 h-4 flex-shrink-0 ${refreshing ? 'animate-spin' : ''}`} />
               <span className="truncate">{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
@@ -703,7 +703,7 @@ export default function DashboardPage() {
 
             <Link 
               href="/dashboard/accounts"
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow"
             >
               <Users2 className="w-4 h-4 flex-shrink-0" />
               <span className="truncate">Manage Accounts</span>
@@ -711,7 +711,7 @@ export default function DashboardPage() {
             
             <Link 
               href="/dashboard/posts"
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow-md"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow-md"
             >
               <FileText className="w-4 h-4 flex-shrink-0" />
               <span className="truncate">Posts History</span>
@@ -719,15 +719,13 @@ export default function DashboardPage() {
 
             <Link 
               href="/dashboard/content/create"
-              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow-md"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow-md"
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
               <span className="truncate">Create Post</span>
             </Link>
           </div>
         </DashboardHeader>
-
-        
 
         {!hasConnectedPlatforms ? (
           // No platforms connected
@@ -752,9 +750,9 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-8">
             {/* Platform Status Cards */}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-6">
               {/* Instagram Card */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -854,9 +852,9 @@ export default function DashboardPage() {
 
             {/* Combined Analytics */}
             {combinedAnalytics && combinedAnalytics.comparison && (
-              <>
+              <div className="flex flex-col gap-8">
                 {/* Key Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-medium text-gray-600">Total Audience</h3>
@@ -913,9 +911,9 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Period Selector */}
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <h2 className="text-2xl font-bold text-gray-900">Analytics Overview</h2>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {[
                       { key: 'week', label: 'Last 7 Days' },
                       { key: 'month', label: 'Last 28 Days' },
@@ -937,7 +935,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Platform Comparison Chart */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-hidden">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Platform Comparison</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={platformComparisonData}>
@@ -970,7 +968,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Audience Distribution & Engagement Rate */}
-                <div className="grid md:grid-cols-2 gap-6 mb-8">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   {/* Audience Pie Chart */}
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-6">Audience Distribution</h3>
@@ -1049,7 +1047,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Growth Metrics Comparison */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-hidden">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">Growth & Performance Metrics</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={growthData}>
@@ -1084,7 +1082,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Detailed Platform Performance */}
-                <div className="grid md:grid-cols-2 gap-6 mb-8">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Instagram Performance */}
                   {platformStatus.instagram.connected && (
                     <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-200 p-6">
@@ -1256,7 +1254,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* AI Insights Section */}
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-200 p-6 mb-8">
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-200 p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                       <Sparkles className="w-5 h-5 text-purple-600" />
@@ -1299,7 +1297,7 @@ export default function DashboardPage() {
                       )}
 
                       {/* Performance Overview */}
-                      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <div className="bg-white rounded-lg p-4 border border-purple-100">
                           <div className="flex items-center gap-2 mb-3">
                             <Target className="w-4 h-4 text-purple-500" />
@@ -1419,7 +1417,7 @@ export default function DashboardPage() {
                             <Award className="w-5 h-5 text-emerald-600" />
                             Best Performing Content Types
                           </h4>
-                          <div className="grid md:grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                             {/* Instagram Analysis */}
                             <div className="space-y-4">
                               <div className="flex items-center gap-2 mb-3">
@@ -1530,7 +1528,7 @@ export default function DashboardPage() {
                             <Brain className="w-5 h-5 text-violet-600" />
                             Detailed Performance Metrics
                           </h4>
-                          <div className="grid md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div className="p-4 bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg border border-violet-200">
                               <div className="text-sm font-medium text-gray-600 mb-2">Engagement Quality</div>
                               <div className="text-2xl font-bold text-violet-600 mb-1">
@@ -2611,7 +2609,7 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {/* Data freshness indicator */}
@@ -2626,9 +2624,10 @@ export default function DashboardPage() {
                 </p>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
+  </div>
   );
 }
