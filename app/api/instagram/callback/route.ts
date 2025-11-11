@@ -63,6 +63,9 @@ export async function GET(request: NextRequest) {
       const longLivedData = await longLivedTokenResponse.json();
       longLivedToken = longLivedData.access_token;
       expiresIn = longLivedData.expires_in || 5184000; // 60 days default
+      console.log('Long-lived token obtained, expires in:', expiresIn, 'seconds');
+    } else {
+      console.warn('Failed to get long-lived token, using short-lived token');
     }
 
     // Get Facebook Pages first (required for Instagram Business)

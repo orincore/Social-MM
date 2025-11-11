@@ -56,6 +56,36 @@ export default {
         console.error('Instagram polling failed:', pollError);
       }
 
+      // Refresh Instagram tokens (run once per hour - every 60th minute)
+      const currentMinute = now.getMinutes();
+      if (currentMinute === 0) { // Run at the top of every hour
+        try {
+          console.log('Running hourly Instagram token refresh...');
+          const tokenRefreshResponse = await fetch(`${env.NEXTJS_APP_URL}/api/cron/refresh-instagram-tokens`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${env.CRON_SECRET}`,
+            },
+            body: JSON.stringify({
+              currentTime,
+              source: 'cloudflare-worker'
+            })
+          });
+
+          if (tokenRefreshResponse.ok) {
+            const refreshResult = await tokenRefreshResponse.json();
+            console.log('Instagram token refresh result:', refreshResult);
+          } else {
+            console.error('Instagram token refresh failed with status:', tokenRefreshResponse.status);
+            const errorText = await tokenRefreshResponse.text();
+            console.error('Instagram token refresh error:', errorText);
+          }
+        } catch (refreshError) {
+          console.error('Instagram token refresh failed:', refreshError);
+        }
+      }
+
       // If there are posts to process, also trigger the Upstash queue processing
       if (result.processedCount > 0 && env.UPSTASH_QUEUE_URL) {
         try {

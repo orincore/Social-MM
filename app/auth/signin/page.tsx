@@ -4,7 +4,7 @@ import { signIn, getProviders } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Zap, Github, AlertTriangle } from 'lucide-react';
+import { Zap, AlertTriangle, Shield, Sparkles, TrendingUp, Users } from 'lucide-react';
 
 interface Provider {
   id: string;
@@ -29,8 +29,6 @@ export default function SignInPage() {
 
   const getProviderIcon = (providerId: string) => {
     switch (providerId) {
-      case 'github':
-        return <Github className="h-5 w-5" />;
       case 'google':
         return (
           <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -58,118 +56,159 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex justify-center">
-            <Link href="/" className="flex items-center">
-              <Zap className="h-12 w-12 text-indigo-600" />
-              <span className="ml-2 text-3xl font-bold text-gray-900">Social MM</span>
-            </Link>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link href="/" className="font-medium text-indigo-600 hover:text-indigo-500">
-              go back to homepage
-            </Link>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center mb-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg blur opacity-75"></div>
+              <div className="relative bg-gradient-to-r from-indigo-600 to-purple-600 p-3 rounded-lg">
+                <Zap className="h-8 w-8 text-white" />
+              </div>
+            </div>
+            <span className="ml-3 text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Social OS
+            </span>
+          </Link>
+          
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+            Welcome back
+          </h1>
+          <p className="text-lg text-gray-600">
+            Sign in to manage your social media empire
           </p>
         </div>
 
-        {/* Error Message */}
-        {error === 'account_deleted' && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-red-500 mr-3" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800">Account Deleted</h3>
-                <p className="text-sm text-red-700 mt-1">
-                  Your account has been deleted. Please contact support if you believe this is an error.
-                </p>
+        {/* Main Card */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200 p-8">
+
+          {/* Error Messages */}
+          {error === 'account_deleted' && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center">
+                <AlertTriangle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium text-red-800">Account Deleted</h3>
+                  <p className="text-sm text-red-700 mt-1">
+                    Your account has been deleted. Please contact support if you believe this is an error.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {error && error !== 'account_deleted' && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertTriangle className="h-5 w-5 text-red-500 mr-3" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800">Sign In Error</h3>
-                <p className="text-sm text-red-700 mt-1">
-                  {error === 'OAuthCallback' ? 'Authentication failed. Please try again.' : 
-                   error === 'AccessDenied' ? 'Access denied. Please check your permissions.' :
-                   'An error occurred during sign in. Please try again.'}
-                </p>
+          {error && error !== 'account_deleted' && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center">
+                <AlertTriangle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium text-red-800">Sign In Error</h3>
+                  <p className="text-sm text-red-700 mt-1">
+                    {error === 'OAuthCallback' ? 'Authentication failed. Please try again.' : 
+                     error === 'AccessDenied' ? 'Access denied. Please check your permissions.' :
+                     'An error occurred during sign in. Please try again.'}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="mt-8 space-y-4">
-          {providers &&
-            Object.values(providers).map((provider) => (
-              <div key={provider.name}>
-                <button
-                  onClick={async () => {
-                    console.log('Attempting to sign in with:', provider.id);
-                    try {
-                      const result = await signIn(provider.id, { 
-                        redirect: false 
-                      });
-                      console.log('SignIn result:', result);
-                      if (result?.error) {
-                        console.error('SignIn error:', result.error);
-                        alert('Sign in failed: ' + result.error);
-                      } else if (result?.url) {
-                        window.location.href = result.url;
+          {/* Sign In Buttons */}
+          <div className="space-y-3 mb-8">
+            {providers &&
+              Object.values(providers)
+                .filter((provider) => provider.id !== 'github')
+                .map((provider) => (
+                  <button
+                    key={provider.name}
+                    onClick={async () => {
+                      console.log('Attempting to sign in with:', provider.id);
+                      try {
+                        const result = await signIn(provider.id, { redirect: false });
+                        console.log('SignIn result:', result);
+                        if (result?.error) {
+                          console.error('SignIn error:', result.error);
+                          alert('Sign in failed: ' + result.error);
+                        } else if (result?.url) {
+                          window.location.href = result.url;
+                        }
+                      } catch (error) {
+                        console.error('SignIn exception:', error);
+                        alert('Sign in failed: ' + error);
                       }
-                    } catch (error) {
-                      console.error('SignIn exception:', error);
-                      alert('Sign in failed: ' + error);
-                    }
-                  }}
-                  className="group relative w-full flex justify-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                >
-                  <span className="absolute left-0 inset-y-0 flex items-center pl-4">
-                    {getProviderIcon(provider.id)}
-                  </span>
-                  Continue with {provider.name}
-                </button>
-              </div>
-            ))}
-        </div>
+                    }}
+                    className="group relative w-full flex items-center justify-center py-4 px-6 border border-gray-200 text-base font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <span className="absolute left-6 flex items-center">
+                      {getProviderIcon(provider.id)}
+                    </span>
+                    Continue with {provider.name}
+                  </button>
+                ))}
+          </div>
 
-        <div className="mt-6">
-          <div className="relative">
+          {/* Divider */}
+          <div className="relative mb-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+              <div className="w-full border-t border-gray-200" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500">Features you'll get</span>
+              <span className="px-4 bg-white text-gray-500 font-medium">What you'll get</span>
             </div>
           </div>
 
-          <div className="mt-6 space-y-3">
-            <div className="flex items-center text-sm text-gray-600">
-              <span className="text-green-500 mr-2">✓</span>
-              Schedule posts across Instagram, Facebook & YouTube
+          {/* Features */}
+          <div className="grid grid-cols-1 gap-4">
+            <div className="flex items-center p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <Sparkles className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">AI-Powered Content</p>
+                <p className="text-xs text-gray-600">Generate captions and ideas instantly</p>
+              </div>
             </div>
-            <div className="flex items-center text-sm text-gray-600">
-              <span className="text-green-500 mr-2">✓</span>
-              AI-powered caption and content generation
+            
+            <div className="flex items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <TrendingUp className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Advanced Analytics</p>
+                <p className="text-xs text-gray-600">Track performance across platforms</p>
+              </div>
             </div>
-            <div className="flex items-center text-sm text-gray-600">
-              <span className="text-green-500 mr-2">✓</span>
-              Detailed analytics and performance tracking
+            
+            <div className="flex items-center p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 w-8 h-8 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <Users className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Multi-Platform</p>
+                <p className="text-xs text-gray-600">Instagram, YouTube & Facebook</p>
+              </div>
             </div>
-            <div className="flex items-center text-sm text-gray-600">
-              <span className="text-green-500 mr-2">✓</span>
-              Free plan with 10 posts per month
+            
+            <div className="flex items-center p-3 bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl">
+              <div className="bg-gradient-to-r from-gray-600 to-slate-700 w-8 h-8 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <Shield className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Secure & Reliable</p>
+                <p className="text-xs text-gray-600">Bank-level security standards</p>
+              </div>
             </div>
+          </div>
+
+          {/* Back to Homepage */}
+          <div className="mt-8 text-center">
+            <Link 
+              href="/" 
+              className="text-sm text-gray-500 hover:text-indigo-600 transition-colors"
+            >
+              ← Back to homepage
+            </Link>
           </div>
         </div>
       </div>

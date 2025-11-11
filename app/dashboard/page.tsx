@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink, PenTool, Eye, Heart, MessageCircle, Share2, ThumbsUp, Video, TrendingDown, ArrowUp, ArrowDown, Clock, Sparkles, Brain, Target, Zap, Lightbulb, TrendingUp as TrendingUpIcon, AlertTriangle, CheckCircle, Star, Wand2, Film, Image as ImageIcon, Layers, Award, Users2, Globe, MapPin, PieChart as PieChartIcon, BarChart as BarChartIcon, Calendar as CalendarIcon, Globe as GlobeIcon } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink, PenTool, Eye, Heart, MessageCircle, Share2, ThumbsUp, Video, TrendingDown, ArrowUp, ArrowDown, Clock, Sparkles, Brain, Target, Zap, Lightbulb, TrendingUp as TrendingUpIcon, AlertTriangle, CheckCircle, Star, Wand2, Film, Image as ImageIcon, Layers, Award, Users2, Globe, MapPin, PieChart as PieChartIcon, BarChart as BarChartIcon, Calendar as CalendarIcon, Globe as GlobeIcon, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { DashboardSkeleton, AnalyticsCardSkeleton } from '@/components/ui/skeleton';
 import { formatNumber, getRelativeTime } from '@/lib/utils';
@@ -675,43 +675,56 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="w-full max-w-[96%] 2xl:max-w-[95%] mx-auto px-2 sm:px-4 py-4 sm:py-6">
         {/* Header */}
         <DashboardHeader 
           title="Dashboard" 
-          description={`Welcome back! Here's your social media overview.${combinedAnalytics?.fromCache ? ` ${combinedAnalytics.isStale ? '(Updating...)' : '(Cached)'}` : ''}`}
+          description={
+            <span>
+              Welcome back! Here's your social media overview.
+              {combinedAnalytics?.fromCache && (
+                <span className="ml-2 text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full border border-yellow-100">
+                  {combinedAnalytics.isStale ? 'Updating...' : 'Cached'}
+                </span>
+              )}
+            </span>
+          }
+          className="mb-6"
         >
-          {hasConnectedPlatforms && (
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`w-4 h-4 flex-shrink-0 ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="truncate">{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
             </button>
-          )}
-          {hasConnectedPlatforms && (
-            <button
-              onClick={() => window.open(`/api/analytics/combined/export?period=${selectedPeriod}`)}
-              className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+
+            <Link 
+              href="/dashboard/accounts"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow"
             >
-              Export CSV
-            </button>
-          )}
-          <Link 
-            href="/dashboard/accounts" 
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            Manage Accounts
-          </Link>
-          <Link 
-            href="/dashboard/content/create" 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Create Post
-          </Link>
+              <Users2 className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Manage Accounts</span>
+            </Link>
+            
+            <Link 
+              href="/dashboard/posts"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow-md"
+            >
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Posts History</span>
+            </Link>
+
+            <Link 
+              href="/dashboard/content/create"
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow-md"
+            >
+              <Plus className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Create Post</span>
+            </Link>
+          </div>
         </DashboardHeader>
 
         {/* Demographic Overview Cards */}

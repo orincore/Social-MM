@@ -22,6 +22,10 @@ export default function SiteFooter() {
               Data Deletion
             </Link>
           </div>
+
+          <p className="text-center text-xs text-gray-500 mt-6">
+            An app by <span className="font-medium text-gray-700">ORINCORE Technologies</span>
+          </p>
         </div>
       </div>
     </footer>

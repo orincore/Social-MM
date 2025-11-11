@@ -69,12 +69,54 @@ export async function GET() {
       return NextResponse.json({ connected: false });
     }
 
-    // Check if token is expired
-    const isTokenExpired = new Date() > account.tokenExpiresAt;
+    // Check if token is expired or needs refresh (within 7 days)
+    const now = new Date();
+    const isTokenExpired = now > account.tokenExpiresAt;
+    const daysUntilExpiry = Math.ceil((account.tokenExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const needsRefresh = daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+
+    // Auto-refresh token if it's close to expiry
+    if (needsRefresh && !isTokenExpired) {
+      console.log(`Instagram token expires in ${daysUntilExpiry} days, attempting auto-refresh...`);
+      try {
+        const refreshUrl = `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${account.accessToken}`;
+        const refreshResponse = await fetch(refreshUrl);
+        
+        if (refreshResponse.ok) {
+          const refreshData = await refreshResponse.json();
+          const newToken = refreshData.access_token;
+          const expiresIn = refreshData.expires_in || 5184000; // 60 days default
+          const newExpiryDate = new Date(Date.now() + expiresIn * 1000);
+          
+          // Update account with new token
+          account.accessToken = newToken;
+          account.tokenExpiresAt = newExpiryDate;
+          account.lastSyncAt = new Date();
+          await account.save();
+          
+          // Update user profile for consistency
+          if (user.instagram) {
+            user.instagram.accessToken = newToken;
+            user.instagram.tokenExpiresAt = newExpiryDate;
+            user.instagram.connected = true;
+            await user.save();
+          }
+          
+          console.log('Instagram token auto-refreshed successfully, new expiry:', newExpiryDate);
+        } else {
+          console.log('Auto-refresh failed, token may need manual reconnection');
+        }
+      } catch (refreshError) {
+        console.log('Auto-refresh error:', refreshError);
+      }
+    }
+
+    // Re-check expiry after potential refresh
+    const finalIsTokenExpired = new Date() > account.tokenExpiresAt;
 
     // Fetch fresh account data to get real account type
     let freshAccountData = null;
-    if (!isTokenExpired) {
+    if (!finalIsTokenExpired) {
       try {
         const accountResponse = await fetch(
           `https://graph.facebook.com/v21.0/${account.instagramId}?fields=id,username,media_count,followers_count,follows_count,profile_picture_url,biography,website&access_token=${account.accessToken}`
@@ -127,7 +169,7 @@ export async function GET() {
     }
 
     const response = { 
-      connected: !isTokenExpired, 
+      connected: !finalIsTokenExpired, 
       account: {
         username: freshAccountData?.username || account.username,
         userId: account.instagramId,
@@ -140,7 +182,9 @@ export async function GET() {
         website: freshAccountData?.website || account.website,
         connectedAt: account.createdAt,
         lastUpdated: account.updatedAt,
-        tokenExpired: isTokenExpired
+        tokenExpired: finalIsTokenExpired,
+        tokenExpiresAt: account.tokenExpiresAt,
+        daysUntilExpiry: Math.ceil((account.tokenExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       }
     };
     

@@ -33,4 +33,7 @@ export const connectToDatabase = async () => {
   return { client, db: client.db() };
 };
 
+// Alias for backward compatibility
+export const connectDB = connectToDatabase;
+
 export default clientPromise;

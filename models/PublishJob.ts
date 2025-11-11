@@ -86,4 +86,7 @@ PublishJobSchema.index({ status: 1, scheduledAt: 1 });
 PublishJobSchema.index({ userId: 1, status: 1 });
 PublishJobSchema.index({ nextRetryAt: 1, status: 1 });
 
-export const PublishJob = mongoose.models.PublishJob || mongoose.model<IPublishJob>('PublishJob', PublishJobSchema);
+const PublishJob = mongoose.models.PublishJob || mongoose.model<IPublishJob>('PublishJob', PublishJobSchema);
+
+export { PublishJob };
+export default PublishJob;
