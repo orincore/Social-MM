@@ -97,7 +97,23 @@ export class YouTubeAPI {
     const { title, description, tags = [], categoryId = '22', privacyStatus, publishAt, videoBlob, thumbnailBlob } = params;
 
     // Validate and sanitize inputs
-    const sanitizedTitle = (title || '').trim() || 'Untitled Video';
+    let sanitizedTitle = (title || '').trim();
+    
+    // YouTube title requirements: 1-100 characters, no empty/whitespace-only titles
+    if (!sanitizedTitle || sanitizedTitle.length === 0) {
+      sanitizedTitle = 'Untitled Video';
+    } else if (sanitizedTitle.length > 100) {
+      sanitizedTitle = sanitizedTitle.substring(0, 97) + '...';
+    }
+    
+    // Remove any problematic characters that might cause API issues
+    sanitizedTitle = sanitizedTitle.replace(/[<>]/g, '').trim();
+    
+    // Final fallback if title becomes empty after cleaning
+    if (!sanitizedTitle) {
+      sanitizedTitle = 'Untitled Video';
+    }
+    
     const sanitizedDescription = (description || '').trim() || 'No description provided';
     const sanitizedTags = Array.isArray(tags) ? tags.filter(tag => tag && tag.trim()) : [];
 

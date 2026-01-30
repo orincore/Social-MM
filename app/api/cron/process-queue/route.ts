@@ -154,6 +154,72 @@ export async function POST(request: NextRequest) {
               shareToFeed: shareToFeed ?? content.instagramOptions?.shareToFeed ?? true,
               thumbOffset: thumbOffset ?? content.instagramOptions?.thumbOffset ?? 0
             });
+          } else if (content.platform === 'youtube') {
+            // Get user with YouTube tokens
+            const user = await User.findById(userId || content.userId);
+            if (!user || !user.youtube?.connected || !user.youtube?.accessToken) {
+              throw new Error('YouTube account not connected or tokens missing');
+            }
+
+            // Check if token is expired and refresh if needed
+            let accessToken = user.youtube.accessToken;
+            if (new Date() > user.youtube.tokenExpiresAt) {
+              try {
+                const { YouTubeAPI } = await import('@/lib/youtube-api');
+                const refreshedTokens = await YouTubeAPI.refreshToken(user.youtube.refreshToken);
+                accessToken = refreshedTokens.access_token;
+                
+                // Update stored tokens
+                user.youtube.accessToken = accessToken;
+                user.youtube.tokenExpiresAt = new Date(Date.now() + refreshedTokens.expires_in * 1000);
+                await user.save();
+              } catch (error) {
+                throw new Error('YouTube token expired and refresh failed. Please reconnect your account.');
+              }
+            }
+
+            // Initialize YouTube API
+            const { YouTubeAPI } = await import('@/lib/youtube-api');
+            const youtubeAPI = new YouTubeAPI(accessToken);
+
+            // Validate and prepare title
+            let videoTitle = (content.title || '').trim();
+            if (!videoTitle) {
+              // Generate title from caption or description
+              const fallbackText = (content.caption || content.description || '').trim();
+              if (fallbackText) {
+                videoTitle = fallbackText.substring(0, 60).replace(/\n/g, ' ').trim();
+              }
+              if (!videoTitle) {
+                videoTitle = 'Untitled Video';
+              }
+            }
+
+            // Get video file from R2
+            const { r2Storage } = await import('@/lib/r2-storage');
+            const r2Key = mediaUrl.replace(/^https?:\/\/[^\/]+\//, '');
+            const videoBlob = await r2Storage.getFile(r2Key);
+            if (!videoBlob) {
+              throw new Error('Video file not found in storage');
+            }
+
+            console.log('Publishing queued YouTube video:', {
+              title: videoTitle,
+              description: (content.description || content.caption || '').substring(0, 50) + '...',
+              tags: content.tags
+            });
+
+            // Upload video to YouTube
+            const uploadResult = await youtubeAPI.uploadVideo({
+              title: videoTitle,
+              description: content.description || content.caption || 'No description',
+              tags: content.tags || [],
+              categoryId: '22', // People & Blogs
+              privacyStatus: content.privacyStatus || 'public',
+              videoBlob
+            });
+
+            publishedPostId = uploadResult.id;
           } else {
             throw new Error(`Unsupported platform in queue: ${content.platform}`);
           }
