@@ -181,7 +181,7 @@ cloudflare-worker/node_modules/
 cloudflare-worker/.wrangler/
 
 # MongoDB
-data/
+# data/ - REMOVED: data/ contains source code files, not database files
 
 # Uploads and media
 uploads/
