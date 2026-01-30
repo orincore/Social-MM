@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink, PenTool, Eye, Heart, MessageCircle, Share2, ThumbsUp, Video, TrendingDown, ArrowUp, ArrowDown, Clock, Sparkles, Brain, Target, Zap, Lightbulb, TrendingUp as TrendingUpIcon, AlertTriangle, CheckCircle, Star, Wand2, Film, Image as ImageIcon, Layers, Award, Users2, Globe, MapPin, PieChart as PieChartIcon, BarChart as BarChartIcon, Calendar as CalendarIcon, Globe as GlobeIcon, FileText } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink, PenTool, Eye, Heart, MessageCircle, Share2, ThumbsUp, Video, TrendingDown, ArrowUp, ArrowDown, Clock, Sparkles, Brain, Target, Zap, Lightbulb, TrendingUp as TrendingUpIcon, AlertTriangle, CheckCircle, Star, Wand2, Film, Image as ImageIcon, Layers, Award, Users2, Globe, MapPin, PieChart as PieChartIcon, BarChart as BarChartIcon, Calendar as CalendarIcon, Globe as GlobeIcon, FileText, ShoppingBag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { DashboardSkeleton, AnalyticsCardSkeleton } from '@/components/ui/skeleton';
 import { formatNumber, getRelativeTime } from '@/lib/utils';
+import { ProductAd } from '@/components/store/product-ad';
 
 interface DemographicData {
   gender: { name: string; value: number }[];
@@ -710,11 +711,11 @@ export default function DashboardPage() {
             </Link>
             
             <Link 
-              href="/dashboard/posts"
+              href="/dashboard/store"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-150 shadow-sm hover:shadow-md"
             >
-              <FileText className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate">Posts History</span>
+              <ShoppingBag className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Creator Store</span>
             </Link>
 
             <Link 
@@ -723,6 +724,14 @@ export default function DashboardPage() {
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
               <span className="truncate">Create Post</span>
+            </Link>
+
+            <Link
+              href="/dashboard/collaboration"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border border-purple-200 rounded-lg text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-150 shadow-sm hover:shadow"
+            >
+              <Users2 className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">AI Collaboration</span>
             </Link>
           </div>
         </DashboardHeader>
@@ -909,6 +918,9 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Creator Commerce Banner */}
+                <ProductAd />
 
                 {/* Period Selector */}
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

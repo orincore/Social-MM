@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Zap, Plus, User, LogOut, Crown, PenTool, ChevronDown, FileText } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Zap, Plus, User, Users, LogOut, Crown, PenTool, ChevronDown, FileText } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import ClientOnly from '@/components/client-only';
 import UserValidationWrapper from '@/components/user-validation-wrapper';
@@ -110,6 +110,13 @@ export default function DashboardLayout({
             >
               <Settings className="h-5 w-5 mr-3" />
               Settings
+            </Link>
+            <Link
+              href="/dashboard/agency"
+              className="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors mt-1"
+            >
+              <Users className="h-5 w-5 mr-3" />
+              Agency Console
             </Link>
           </div>
         </nav>

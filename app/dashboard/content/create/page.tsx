@@ -88,6 +88,31 @@ export default function CreateContent() {
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type for Instagram compatibility
+      const isVideo = file.type.startsWith('video/');
+      const isMp4 = file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4');
+      
+      if (isVideo && !isMp4) {
+        alert('⚠️ Instagram Reels only support MP4 format.\n\nPlease convert your video to MP4 with these specs:\n• Format: MP4 (H.264 video codec, AAC audio)\n• Aspect Ratio: Vertical 9:16 (e.g., 1080x1920)\n• Duration: 3-60 seconds\n• Max Size: 100MB');
+        e.target.value = ''; // Clear the input
+        return;
+      }
+      
+      // Validate file size
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      if (file.size > maxSize) {
+        alert('⚠️ File size too large!\n\nMaximum size: 100MB\nYour file: ' + (file.size / (1024 * 1024)).toFixed(2) + 'MB\n\nPlease compress your video or reduce its duration.');
+        e.target.value = '';
+        return;
+      }
+      
+      const minSize = 10 * 1024; // 10KB
+      if (file.size < minSize) {
+        alert('⚠️ File size too small. The video file may be corrupted.\n\nPlease upload a valid video file.');
+        e.target.value = '';
+        return;
+      }
+      
       setMediaFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {

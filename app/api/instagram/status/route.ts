@@ -69,11 +69,11 @@ export async function GET() {
       return NextResponse.json({ connected: false });
     }
 
-    // Check if token is expired or needs refresh (within 7 days)
+    // Check if token is expired or needs refresh (within 30 days)
     const now = new Date();
     const isTokenExpired = now > account.tokenExpiresAt;
     const daysUntilExpiry = Math.ceil((account.tokenExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    const needsRefresh = daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+    const needsRefresh = daysUntilExpiry <= 30 && daysUntilExpiry > 0;
 
     // Auto-refresh token if it's close to expiry
     if (needsRefresh && !isTokenExpired) {

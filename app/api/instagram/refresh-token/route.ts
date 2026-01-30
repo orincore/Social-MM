@@ -29,15 +29,16 @@ export async function POST(request: NextRequest) {
 
     console.log('Attempting to refresh Instagram token for:', instagramAccount.username);
 
-    // Check if token is close to expiry (within 7 days)
+    // Check if token is close to expiry (within 30 days for proactive refresh)
     const now = new Date();
     const tokenExpiryDate = new Date(instagramAccount.tokenExpiresAt);
     const daysUntilExpiry = Math.ceil((tokenExpiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
     console.log(`Token expires in ${daysUntilExpiry} days`);
 
-    // Only refresh if token is close to expiry or already expired
-    if (daysUntilExpiry > 7 && daysUntilExpiry > 0) {
+    // Only refresh if token is close to expiry (within 30 days) or already expired
+    // Instagram allows refreshing tokens before they expire to extend validity
+    if (daysUntilExpiry > 30 && daysUntilExpiry > 0) {
       return NextResponse.json({
         success: true,
         message: 'Token is still valid, no refresh needed',
@@ -46,7 +47,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Refresh the long-lived token
+    // Refresh the long-lived token using Instagram Graph API
+    // This extends the token validity by another 60 days from the refresh time
     const refreshUrl = `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${instagramAccount.accessToken}`;
     
     const refreshResponse = await fetch(refreshUrl);

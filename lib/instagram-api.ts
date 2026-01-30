@@ -508,13 +508,24 @@ export class InstagramAPI {
             );
             
             let errorDetails = '';
+            let specificError = 'Video format incompatible with Instagram Reels';
+            
             if (errorResponse.ok) {
               const errorData = await errorResponse.json();
               console.log('Detailed error info:', errorData);
               errorDetails = errorData.status ? ` - ${errorData.status}` : '';
+              
+              // Check for specific error codes
+              if (errorDetails.includes('2207076') || errorDetails.includes('codec') || errorDetails.includes('format')) {
+                specificError = 'Video codec/format issue. Instagram requires: MP4 container, H.264/AVC video codec (not H.265/HEVC), AAC audio codec, vertical 9:16 aspect ratio, 3-60 seconds duration';
+              } else if (errorDetails.includes('aspect') || errorDetails.includes('ratio') || errorDetails.includes('dimension')) {
+                specificError = 'Video aspect ratio issue. Instagram Reels require vertical 9:16 aspect ratio (e.g., 1080x1920)';
+              } else if (errorDetails.includes('duration') || errorDetails.includes('length')) {
+                specificError = 'Video duration issue. Instagram Reels must be between 3 and 60 seconds';
+              }
             }
             
-            throw new Error(`Media processing failed with status: ${statusData.status_code}${errorDetails}. This usually means the video format is not compatible with Instagram Reels. Please try a different video file (MP4 format, vertical orientation, max 60 seconds).`);
+            throw new Error(`${specificError}${errorDetails}. Please re-encode your video with these exact specs: MP4 format, H.264 video codec, AAC audio, 9:16 vertical, 3-60s duration.`);
           }
         }
       }

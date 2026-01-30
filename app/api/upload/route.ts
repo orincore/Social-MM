@@ -41,31 +41,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Since Instagram Reels only support MP4 upload via API, enforce MP4 files
-    const allowedTypes = ['video/mp4'];
+    // Instagram Reels requirements validation
+    const allowedTypes = ['video/mp4', 'video/quicktime'];
     const fileType = 'video'; // Always video
-    const isMp4Mime = allowedTypes.includes(file.type);
+    const isMp4Mime = file.type === 'video/mp4';
     const isMp4Extension = file.name?.toLowerCase().endsWith('.mp4');
+    
     console.log('Upload: File type validation:', {
       fileType,
       actualFileType: file.type,
+      fileName: file.name,
       allowedTypes,
       isMp4Mime,
       isMp4Extension
     });
 
-    if (!isMp4Mime || !isMp4Extension) {
+    // Strict MP4 validation for Instagram compatibility
+    if (!isMp4Mime && !isMp4Extension) {
       console.log('Upload: Invalid file type for Instagram requirements');
       return NextResponse.json({ 
-        error: 'Unsupported file format. Please upload an MP4 video (H.264/AAC) to ensure Instagram compatibility.'
+        error: 'Instagram Reels only support MP4 format',
+        details: 'Please convert your video to MP4 (H.264 video codec, AAC audio codec) before uploading. Requirements: Vertical 9:16 aspect ratio, max 60 seconds, max 100MB.',
+        hint: 'Use a video converter tool to ensure proper format: MP4 container, H.264/AVC video codec, AAC audio codec'
       }, { status: 400 });
     }
 
-    // Validate file size (100MB limit)
+    // Validate file size (100MB limit for Instagram Reels)
     const maxSize = 100 * 1024 * 1024; // 100MB
     if (file.size > maxSize) {
       return NextResponse.json({ 
-        error: 'File size too large. Maximum size is 100MB' 
+        error: 'File size too large. Maximum size is 100MB for Instagram Reels',
+        details: 'Please compress your video or reduce its duration to under 60 seconds'
+      }, { status: 400 });
+    }
+    
+    // Minimum file size check (avoid corrupted files)
+    const minSize = 10 * 1024; // 10KB
+    if (file.size < minSize) {
+      return NextResponse.json({ 
+        error: 'File size too small. Video file may be corrupted',
+        details: 'Please upload a valid video file'
       }, { status: 400 });
     }
 

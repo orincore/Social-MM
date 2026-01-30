@@ -2,9 +2,10 @@
 
 import { signIn, getProviders } from 'next-auth/react';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Zap, AlertTriangle, Shield, Sparkles, TrendingUp, Users } from 'lucide-react';
+import { Zap, AlertTriangle, Shield, Sparkles, TrendingUp, Users, Building2, ArrowRight } from 'lucide-react';
+import { AGENCY_DEMO_STORAGE_KEY } from '@/components/agency-workflow-experience';
 
 interface Provider {
   id: string;
@@ -16,8 +17,13 @@ interface Provider {
 
 export default function SignInPage() {
   const [providers, setProviders] = useState<Record<string, Provider> | null>(null);
+  const [agencyEmail, setAgencyEmail] = useState('');
+  const [agencyAccessCode, setAgencyAccessCode] = useState('');
+  const [agencyError, setAgencyError] = useState<string | null>(null);
+  const [agencyLoading, setAgencyLoading] = useState(false);
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
+  const router = useRouter();
 
   useEffect(() => {
     const fetchProviders = async () => {
@@ -146,6 +152,83 @@ export default function SignInPage() {
                     Continue with {provider.name}
                   </button>
                 ))}
+          </div>
+
+          {/* Agency Login CTA */}
+          <div className="mb-8">
+            <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-5 text-white shadow-lg space-y-5">
+              <div className="flex items-start gap-3">
+                <div className="bg-white/20 p-3 rounded-xl">
+                  <Building2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm uppercase tracking-widest text-white/70">Agency seats</p>
+                  <h3 className="text-xl font-semibold">Host events & source creators</h3>
+                  <p className="text-sm text-white/80 mt-1">
+                    Use any agency email + access code to preview the workflow. We’ll route you to an interactive demo that sends dummy notifications to creators.
+                  </p>
+                </div>
+              </div>
+
+              <form
+                className="space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setAgencyError(null);
+                  if (!agencyEmail || !agencyAccessCode) {
+                    setAgencyError('Enter both email and access code to continue.');
+                    return;
+                  }
+
+                  try {
+                    setAgencyLoading(true);
+                    if (typeof window !== 'undefined') {
+                      window.sessionStorage.setItem(
+                        AGENCY_DEMO_STORAGE_KEY,
+                        JSON.stringify({ email: agencyEmail, accessCode: agencyAccessCode })
+                      );
+                    }
+                    router.push('/agency/demo');
+                  } catch (demoError) {
+                    console.error('Failed to start agency demo:', demoError);
+                    setAgencyError('Something went wrong. Please try again.');
+                    setAgencyLoading(false);
+                  }
+                }}
+              >
+                <label className="block text-sm font-medium text-white/80">
+                  Agency email
+                  <input
+                    type="email"
+                    value={agencyEmail}
+                    onChange={(event) => setAgencyEmail(event.target.value)}
+                    placeholder="events@agency.com"
+                    className="mt-2 w-full rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-white placeholder:text-white/60 focus:border-white focus:outline-none"
+                  />
+                </label>
+                <label className="block text-sm font-medium text-white/80">
+                  Access code
+                  <input
+                    type="password"
+                    value={agencyAccessCode}
+                    onChange={(event) => setAgencyAccessCode(event.target.value)}
+                    placeholder="••••••"
+                    className="mt-2 w-full rounded-xl border border-white/30 bg-white/10 px-3 py-2 text-white placeholder:text-white/60 focus:border-white focus:outline-none"
+                  />
+                </label>
+                {agencyError && (
+                  <p className="text-sm text-amber-200">{agencyError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={agencyLoading}
+                  className={`w-full inline-flex items-center justify-center gap-2 bg-white text-purple-700 font-semibold px-4 py-2 rounded-xl shadow hover:bg-purple-50 transition ${agencyLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  {agencyLoading ? 'Loading demo…' : 'Login as Agency'}
+                  {!agencyLoading && <ArrowRight className="h-4 w-4" />}
+                </button>
+              </form>
+            </div>
           </div>
 
           {/* Divider */}

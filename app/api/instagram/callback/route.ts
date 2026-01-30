@@ -51,21 +51,23 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json();
     const { access_token } = tokenData;
 
-    // Get long-lived access token
+    // Get long-lived access token (60 days)
     const longLivedTokenResponse = await fetch(
       `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${process.env.INSTAGRAM_CLIENT_SECRET}&access_token=${access_token}`
     );
 
     let longLivedToken = access_token;
-    let expiresIn = 3600; // 1 hour default
+    let longLivedExpiresIn = 3600; // 1 hour default
 
     if (longLivedTokenResponse.ok) {
       const longLivedData = await longLivedTokenResponse.json();
       longLivedToken = longLivedData.access_token;
-      expiresIn = longLivedData.expires_in || 5184000; // 60 days default
-      console.log('Long-lived token obtained, expires in:', expiresIn, 'seconds');
+      longLivedExpiresIn = longLivedData.expires_in || 5184000; // 60 days default
+      console.log('Long-lived token obtained, expires in:', longLivedExpiresIn, 'seconds (', Math.floor(longLivedExpiresIn / 86400), 'days)');
     } else {
-      console.warn('Failed to get long-lived token, using short-lived token');
+      const errorText = await longLivedTokenResponse.text();
+      console.error('Failed to get long-lived token:', errorText);
+      console.warn('Using short-lived token - this will expire quickly!');
     }
 
     // Get Facebook Pages first (required for Instagram Business)
@@ -87,10 +89,22 @@ export async function GET(request: NextRequest) {
     // Find the page that has an Instagram Business account connected
     let selectedPage = null;
     let pageAccessToken = null;
+    let pageTokenExpiresIn = 0;
     let igAccountData = null;
 
     for (const page of pagesData.data) {
       console.log('Checking page:', page.id, page.name);
+      
+      // Get page long-lived token info
+      const pageDebugResponse = await fetch(
+        `https://graph.facebook.com/v18.0/debug_token?input_token=${page.access_token}&access_token=${longLivedToken}`
+      );
+      
+      if (pageDebugResponse.ok) {
+        const debugData = await pageDebugResponse.json();
+        pageTokenExpiresIn = debugData.data?.expires_at ? (debugData.data.expires_at - Math.floor(Date.now() / 1000)) : 5184000;
+        console.log('Page token expires in:', Math.floor(pageTokenExpiresIn / 86400), 'days');
+      }
       
       const igAccountResponse = await fetch(
         `https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`
@@ -169,13 +183,19 @@ export async function GET(request: NextRequest) {
       ]
     });
 
+    // Use the longer expiration time between page token and long-lived token
+    const effectiveExpiresIn = Math.max(pageTokenExpiresIn, longLivedExpiresIn);
+    const tokenExpiryDate = new Date(Date.now() + effectiveExpiresIn * 1000);
+    
+    console.log('Token will expire at:', tokenExpiryDate, '(in', Math.floor(effectiveExpiresIn / 86400), 'days)');
+
     if (existingAccount) {
       console.log('Updating existing Instagram account:', existingAccount._id);
-      // Update existing account
-      existingAccount.accessToken = pageAccessToken; // Use page access token for Instagram Business
-      existingAccount.tokenExpiresAt = new Date(Date.now() + (expiresIn || 3600) * 1000);
+      // Update existing account - store page access token which is needed for API calls
+      existingAccount.accessToken = pageAccessToken;
+      existingAccount.tokenExpiresAt = tokenExpiryDate;
       existingAccount.username = profileData.username;
-      existingAccount.accountType = profileData.account_type || 'BUSINESS'; // Use real account type from Instagram API
+      existingAccount.accountType = profileData.account_type || 'BUSINESS';
       existingAccount.profilePictureUrl = profileData.profile_picture_url;
       existingAccount.followersCount = profileData.followers_count || 0;
       existingAccount.followingCount = profileData.follows_count || 0;
@@ -193,9 +213,9 @@ export async function GET(request: NextRequest) {
         userId: user._id,
         instagramId: profileData.id,
         username: profileData.username,
-        accountType: profileData.account_type || 'BUSINESS', // Use real account type from Instagram API
-        accessToken: pageAccessToken, // Use page access token for Instagram Business
-        tokenExpiresAt: new Date(Date.now() + (expiresIn || 3600) * 1000),
+        accountType: profileData.account_type || 'BUSINESS',
+        accessToken: pageAccessToken,
+        tokenExpiresAt: tokenExpiryDate,
         profilePictureUrl: profileData.profile_picture_url,
         followersCount: profileData.followers_count || 0,
         followingCount: profileData.follows_count || 0,
@@ -214,7 +234,7 @@ export async function GET(request: NextRequest) {
       connected: true,
       accessToken: pageAccessToken,
       refreshToken: null, // Instagram doesn't use refresh tokens
-      tokenExpiresAt: new Date(Date.now() + (expiresIn || 3600) * 1000),
+      tokenExpiresAt: tokenExpiryDate,
       instagramId: profileData.id,
       username: profileData.username,
       accountType: profileData.account_type || 'BUSINESS',

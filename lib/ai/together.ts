@@ -267,12 +267,29 @@ export class TogetherAI {
       return [content].filter(Boolean);
     } catch (error) {
       console.error('Error generating captions:', error);
-      // Return a fallback caption if there's an error
-      return [
-        `Check out my ${tone} post about: ${content}`,
-        `Sharing my thoughts on: ${content}`,
-        `New ${platform} post: ${content}`
-      ];
+      // Return platform-aware fallback captions if there's an error
+      const sanitized = content.replace(/"/g, '').trim() || 'today\'s update';
+
+      if (platform === 'instagram') {
+        const base = `✨ ${sanitized}\n\nTap the link in bio for the full breakdown and DM for the deck. ⚡️`;
+        const hashtags = '#contentstrategy #creatoreconomy #instabiz #buildinpublic #growth';
+        const template = `${base}\n.\n.\n.\n.\n.\n.\n${hashtags}`;
+        return [
+          template,
+          `🚀 ${sanitized}\n\nWant a personalised plan? Drop “PLAN” below and I\'ll send it over.\n.\n.\n.\n#marketing #socialmedia #contenttips`,
+          `Professional insight: ${sanitized}\n\n💬 Tell me how you would implement this!\n.\n.\n.\n#creators #digitalmarketing`
+        ];
+      }
+
+      if (platform === 'youtube') {
+        return [
+          `${sanitized}\n\nIn this episode we cover:\n00:00 Intro\n00:45 Key insight\n05:30 Action plan\n\n👍 Like, subscribe & turn on notifications.`,
+          `${sanitized}\n\nGrab the checklist in the description and comment “READY” when you\'re in.`,
+          `${sanitized}\n\nChapters:\n0:00 Overview\n1:20 Step-by-step\n6:00 Bonus tip`
+        ];
+      }
+
+      return [`${sanitized}`];
     }
   }
 

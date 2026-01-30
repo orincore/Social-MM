@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { TogetherAI } from '@/lib/ai/together';
+import { generateOptimizedCaption, generateHashtags, generateYouTubeTags, predictPerformance } from '@/lib/openai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 
@@ -36,35 +36,36 @@ export async function POST(req: Request) {
 
         // Generate optimized title (for YouTube)
         if (platform === 'youtube' && title) {
-          const titlePrompt = `Optimize this YouTube video title for maximum engagement and SEO: "${title}". Make it compelling, clickable, and under 60 characters. Include relevant keywords.`;
-          const optimizedTitles = await TogetherAI.generateCaption(titlePrompt, platform, tone);
-          platformResults.optimizedTitle = optimizedTitles[0] || title;
+          const optimizedTitle = await generateOptimizedCaption(
+            `Optimize this YouTube video title for maximum engagement and SEO: "${title}". Make it compelling, clickable, and under 60 characters. Include relevant keywords.`,
+            platform,
+            tone
+          );
+          platformResults.optimizedTitle = optimizedTitle || title;
         }
 
         // Generate optimized caption
         if (caption) {
-          const captionPrompt = platform === 'youtube' 
-            ? `Create an engaging YouTube video description based on: "${caption}". Include hooks, value propositions, and call-to-actions. Make it ${tone} in tone.`
-            : `Create an engaging Instagram caption based on: "${caption}". Include emojis, line breaks, and make it ${tone} in tone.`;
-          
-          const optimizedCaptions = await TogetherAI.generateCaption(captionPrompt, platform, tone);
-          platformResults.optimizedCaption = optimizedCaptions[0] || caption;
+          const optimizedCaption = await generateOptimizedCaption(caption, platform, tone);
+          platformResults.optimizedCaption = optimizedCaption || caption;
         }
 
         // Generate optimized description (for YouTube)
         if (platform === 'youtube' && description) {
-          const descPrompt = `Optimize this YouTube video description for better engagement and SEO: "${description}". Include timestamps, links sections, and relevant keywords. Make it comprehensive and ${tone}.`;
-          const optimizedDescriptions = await TogetherAI.generateCaption(descPrompt, platform, tone);
-          platformResults.optimizedDescription = optimizedDescriptions[0] || description;
+          const optimizedDescription = await generateOptimizedCaption(
+            `Optimize this YouTube video description for better engagement and SEO: "${description}". Include timestamps, links sections, and relevant keywords. Make it comprehensive and ${tone}.`,
+            platform,
+            tone
+          );
+          platformResults.optimizedDescription = optimizedDescription || description;
         }
 
         // Generate hashtags
         const hashtagContent = title || caption || description || 'content';
         try {
-          const hashtags = await TogetherAI.generateHashtags(hashtagContent, platform, platform === 'instagram' ? 15 : 8);
-          // Ensure we have an array of strings
+          const hashtags = await generateHashtags(hashtagContent, platform, platform === 'instagram' ? 15 : 8);
           platformResults.hashtags = Array.isArray(hashtags) 
-            ? hashtags.map(tag => typeof tag === 'string' ? tag.replace(/[#]/g, '') : String(tag))
+            ? hashtags.map(tag => String(tag).replace(/[#]/g, ''))
             : [];
         } catch (error) {
           console.error('Error generating hashtags:', error);
@@ -74,65 +75,21 @@ export async function POST(req: Request) {
         // Generate tags (for YouTube)
         if (platform === 'youtube') {
           try {
-            const tagPrompt = `Generate 25 relevant YouTube tags for content about: "${hashtagContent}". Focus on searchable keywords and trending terms in the ${niche} niche. Return ONLY a JSON array of tags without hashtag symbols. Example: ["fitness", "workout", "health"]`;
-            const generatedTags = await TogetherAI.generateCaption(tagPrompt, platform, 'professional');
-            
-            // Parse the response and clean the tags
-            let tagsList: string[] = [];
-            if (generatedTags && generatedTags[0]) {
-              try {
-                // First try to parse as JSON array
-                const parsedTags = JSON.parse(generatedTags[0]);
-                if (Array.isArray(parsedTags)) {
-                  tagsList = parsedTags
-                    .filter((tag: any) => typeof tag === 'string')
-                    .map((tag: string) => tag.replace(/[#]/g, '').trim())
-                    .filter((tag: string) => tag.length > 0 && tag.split(' ').length <= 3)
-                    .slice(0, 25);
-                }
-              } catch (e) {
-                // Fallback to string splitting if JSON parse fails
-                console.log('Failed to parse tags as JSON, falling back to string parsing');
-                tagsList = generatedTags[0]
-                  .replace(/[\[\]"']/g, '') // Remove brackets and quotes
-                  .split(',')
-                  .map((tag: string) => tag.trim())
-                  .filter((tag: string) => tag.length > 0 && tag.split(' ').length <= 3)
-                  .slice(0, 25);
-              }
-            }
-            
-            // If we don't have enough tags, add some default ones based on niche
-            if (tagsList.length < 20) {
-              const defaultTags = {
-                fitness: ['fitness', 'workout', 'health', 'exercise', 'gym', 'training', 'muscle', 'strength'],
-                food: ['food', 'recipe', 'cooking', 'kitchen', 'meal', 'nutrition', 'healthy', 'delicious'],
-                travel: ['travel', 'adventure', 'explore', 'vacation', 'journey', 'destination', 'culture', 'tourism'],
-                technology: ['tech', 'technology', 'innovation', 'digital', 'software', 'gadgets', 'review', 'tutorial'],
-                general: ['content', 'viral', 'trending', 'popular', 'entertainment', 'lifestyle', 'tips', 'guide']
-              };
-              
-              const nicheDefaults = defaultTags[niche as keyof typeof defaultTags] || defaultTags.general;
-              const missingCount = 25 - tagsList.length;
-              tagsList = [...tagsList, ...nicheDefaults.slice(0, missingCount)];
-            }
-            
+            const tagsList = await generateYouTubeTags(hashtagContent, niche, 25);
             platformResults.tags = tagsList.slice(0, 25);
           } catch (error) {
             console.error('Tag generation failed:', error);
-            // Fallback tags
             platformResults.tags = ['content', 'viral', 'trending', 'popular', 'entertainment'];
           }
         }
 
         // Performance prediction
         try {
-          const performance = await TogetherAI.predictPerformance(hashtagContent, platform, []);
+          const performance = await predictPerformance(hashtagContent, platform);
           platformResults.performancePrediction = performance;
         } catch (error) {
           console.error('Performance prediction failed:', error);
-          // Provide fallback performance prediction
-          const fallbackScore = Math.floor(Math.random() * 30) + 50; // 50-80 range
+          const fallbackScore = Math.floor(Math.random() * 30) + 50;
           platformResults.performancePrediction = {
             performance_score: fallbackScore,
             optimal_time: platform === 'youtube' ? '18:00' : '15:00',
@@ -140,10 +97,10 @@ export async function POST(req: Request) {
           };
         }
 
-        // Optimal posting times
+        // Optimal posting times (using performance prediction)
         try {
-          const optimalTimes = await TogetherAI.optimizePostingSchedule(hashtagContent, platform, []);
-          platformResults.optimalTimes = optimalTimes;
+          const optimalTimeData = await predictPerformance(hashtagContent, platform);
+          platformResults.optimalTimes = [optimalTimeData.optimal_time];
         } catch (error) {
           console.error('Optimal times prediction failed:', error);
           platformResults.optimalTimes = null;

@@ -15,12 +15,13 @@ export async function POST(request: NextRequest) {
     
     console.log('Starting Instagram token refresh job...');
     
-    // Find all Instagram accounts that need token refresh (expire within 7 days)
-    const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Find all Instagram accounts that need token refresh (expire within 30 days)
+    // Instagram recommends refreshing tokens before they expire to maintain continuous access
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     
     const accountsNeedingRefresh = await InstagramAccount.find({
       isActive: true,
-      tokenExpiresAt: { $lte: sevenDaysFromNow }
+      tokenExpiresAt: { $lte: thirtyDaysFromNow }
     }).populate('userId');
 
     console.log(`Found ${accountsNeedingRefresh.length} Instagram accounts needing token refresh`);
