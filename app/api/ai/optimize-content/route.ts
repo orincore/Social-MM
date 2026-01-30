@@ -64,8 +64,10 @@ export async function POST(req: Request) {
         const hashtagContent = title || caption || description || 'content';
         try {
           const hashtags = await generateHashtags(hashtagContent, platform, platform === 'instagram' ? 15 : 8);
-          platformResults.hashtags = Array.isArray(hashtags) 
-            ? hashtags.map(tag => String(tag).replace(/[#]/g, ''))
+          platformResults.hashtags = Array.isArray(hashtags)
+            ? hashtags
+                .map(tag => String(tag).trim())
+                .filter(tag => tag.startsWith('#'))
             : [];
         } catch (error) {
           console.error('Error generating hashtags:', error);

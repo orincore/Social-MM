@@ -150,13 +150,13 @@ export async function generateHashtags(
   const prompt = `Generate ${count} highly relevant and trending hashtags for ${platform} based on this content: "${content}"
 
 Requirements:
+- Every hashtag MUST start with # (include the symbol in the output)
 - Mix of popular and niche-specific hashtags
-- No hashtag symbol (#) in the output
 - Each hashtag should be a single word or compound word (no spaces)
 - Focus on discoverability and engagement
 - Include a mix of broad and specific tags
 
-Return as a JSON array of strings without # symbols. Example: ["fitness", "workout", "healthylifestyle"]`;
+Return as a JSON array of strings that already include the # symbol. Example: ["#fitness", "#workout", "#healthylifestyle"]`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -183,7 +183,12 @@ Return as a JSON array of strings without # symbols. Example: ["fitness", "worko
 
     const parsed = JSON.parse(result);
     if (Array.isArray(parsed)) {
-      return parsed.map(tag => String(tag).replace(/[#\s]/g, '')).filter(Boolean).slice(0, count);
+      return parsed
+        .map(tag => `#${String(tag).replace(/[^\w#]/g, '').replace(/^#*/,'')}`)
+        .map(tag => (tag.startsWith('#') ? tag : `#${tag}`))
+        .map(tag => tag.toLowerCase())
+        .filter(tag => /^#[a-z0-9_]{2,50}$/i.test(tag))
+        .slice(0, count);
     }
     
     throw new Error('Invalid hashtag format');
@@ -194,7 +199,10 @@ Return as a JSON array of strings without # symbols. Example: ["fitness", "worko
       ? ['content', 'viral', 'trending', 'explore', 'reels', 'instagram', 'motivation', 'lifestyle', 'inspiration', 'success', 'mindset', 'growth', 'entrepreneur', 'creative', 'daily']
       : ['youtube', 'video', 'content', 'tutorial', 'howto', 'learn', 'education', 'tips'];
     
-    return fallbackHashtags.slice(0, count);
+    return fallbackHashtags
+      .map(tag => `#${tag.replace(/[^\w]/g, '')}`)
+      .filter(tag => tag.length > 2)
+      .slice(0, count);
   }
 }
 

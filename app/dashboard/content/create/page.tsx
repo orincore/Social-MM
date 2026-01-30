@@ -377,7 +377,10 @@ export default function CreateContent() {
                   // Format Instagram caption with proper structure
                   let formattedCaption = platformData.optimizedCaption;
                   if (platformData.hashtags && Array.isArray(platformData.hashtags)) {
-                    const hashtags = platformData.hashtags.slice(0, 20).join(' ');
+                    const hashtags = platformData.hashtags
+                      .map((tag: string) => (tag.startsWith('#') ? tag : `#${tag}`))
+                      .slice(0, 20)
+                      .join(' ');
                     formattedCaption = `${formattedCaption}\n.\n.\n.\n.\n.\n.\n${hashtags}`;
                   }
                   setCaption(formattedCaption);
