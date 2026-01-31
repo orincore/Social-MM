@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
 
         if (statusData.status_code === 'FINISHED') {
           // Media is ready - publish it!
+          // Note: Caption is already included in the creation_id container, no need to re-specify
           const publishResponse = await fetch(
             `${FACEBOOK_API_BASE}/${user.instagram.instagramId}/media_publish`,
             {

@@ -115,7 +115,14 @@ export class YouTubeAPI {
     }
     
     const sanitizedDescription = (description || '').trim() || 'No description provided';
-    const sanitizedTags = Array.isArray(tags) ? tags.filter(tag => tag && tag.trim()) : [];
+    // YouTube tags requirements: 1-30 characters each, no special characters, max 500 total characters
+    const sanitizedTags = Array.isArray(tags) 
+      ? tags
+          .filter(tag => tag && typeof tag === 'string')
+          .map(tag => tag.trim().replace(/[#@<>]/g, '').replace(/[^\w\s-]/g, ''))
+          .filter(tag => tag.length > 0 && tag.length <= 30)
+          .slice(0, 15) // Limit to 15 tags to stay under 500 char limit
+      : [];
 
     console.log('YouTube API: Uploading video with metadata:', {
       title: sanitizedTitle,

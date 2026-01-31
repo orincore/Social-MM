@@ -125,7 +125,7 @@ Return ONLY the description text, nothing else.`
           content: platformPrompts[platform]
         }
       ],
-      max_tokens: 800,
+      max_tokens: 400,
       temperature: 0.7,
     });
 

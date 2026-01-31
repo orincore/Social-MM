@@ -16,6 +16,7 @@ export default function CombinedAnalyticsPage() {
   const { data: session } = useSession();
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [showCustomRange, setShowCustomRange] = useState(false);
   const [customStartDate, setCustomStartDate] = useState('');
@@ -40,6 +41,36 @@ export default function CombinedAnalyticsPage() {
       console.error('Error fetching combined analytics:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      let url = `/api/analytics/combined/export?period=${selectedPeriod}`;
+      if (selectedPeriod === 'custom' && customStartDate && customEndDate) {
+        url += `&startDate=${customStartDate}&endDate=${customEndDate}`;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `combined-analytics-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Failed to export combined analytics report:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -510,9 +541,13 @@ export default function CombinedAnalyticsPage() {
         <div className="bg-white p-6 rounded-xl shadow-sm border">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-gray-900">Cross-Platform Summary</h3>
-            <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center disabled:opacity-60"
+            >
               <Download className="h-4 w-4 mr-2" />
-              Export Report
+              {exporting ? 'Preparing...' : 'Export Report'}
             </button>
           </div>
           

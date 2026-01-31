@@ -454,9 +454,9 @@ export class InstagramAPI {
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: JSON.stringify(payload),
+          body: new URLSearchParams(payload),
         }
       );
 
