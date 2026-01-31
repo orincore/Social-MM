@@ -223,6 +223,9 @@ export async function GET(request: NextRequest) {
         const refreshedAt = cachedAnalysis.refreshedAt || cachedAnalysis.updatedAt || new Date();
         const staleMinutes = COMMENT_STALE_MINUTES[timeRange] ?? 30;
         const isStale = Date.now() - refreshedAt.getTime() > staleMinutes * 60 * 1000;
+        const hasSummary = !!cachedAnalysis.summary;
+        const isComplete = hasSummary;
+        const needsRefresh = !hasSummary;
 
         return NextResponse.json({
           success: true,
@@ -231,7 +234,8 @@ export async function GET(request: NextRequest) {
           refreshedAt,
           fromCache: true,
           isStale,
-          needsRefresh: false,
+          needsRefresh,
+          isComplete,
         });
       }
 
@@ -243,6 +247,7 @@ export async function GET(request: NextRequest) {
         fromCache: true,
         isStale: true,
         needsRefresh: true,
+        isComplete: false,
         message: 'No cached comment analysis found. Please refresh to fetch the latest comments.',
       });
     }
