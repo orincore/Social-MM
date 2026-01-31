@@ -104,7 +104,12 @@ export default function CommentsAnalysisPage() {
     }
   };
 
-  const filteredComments = comments.filter(comment => {
+  const platformFilteredComments = comments.filter(comment => {
+    if (platform === 'all') return true;
+    return comment.platform === platform;
+  });
+
+  const filteredComments = platformFilteredComments.filter(comment => {
     if (activeTab === 'all') return true;
     if (activeTab === 'positive') return comment.category === 'positive';
     if (activeTab === 'negative') return comment.category === 'negative' || comment.category === 'neutral';

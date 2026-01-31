@@ -31,7 +31,7 @@ export async function classifyComments(
 ): Promise<Array<CommentClassification & { id: string; author: string; timestamp: string }>> {
   if (comments.length === 0) return [];
 
-  const batchSize = 20;
+  const batchSize = 10;
   const results: Array<CommentClassification & { id: string; author: string; timestamp: string }> = [];
 
   for (let i = 0; i < comments.length; i += batchSize) {

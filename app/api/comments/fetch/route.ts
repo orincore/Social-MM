@@ -394,31 +394,59 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let classificationResults: Awaited<ReturnType<typeof classifyComments>> = [];
-    try {
-      classificationResults = await classifyComments(
-        limitedComments.map((comment) => ({
-          id: comment.id,
-          text: comment.text,
-          author: comment.author,
-          timestamp: comment.timestamp,
-        }))
+    console.log(`[Comments API] Starting classification for ${limitedComments.length} comments...`);
+    const classifiedComments: ClassifiedCommentPayload[] = [];
+    const CHUNK_SIZE = 50;
+
+    for (let i = 0; i < limitedComments.length; i += CHUNK_SIZE) {
+      const chunk = limitedComments.slice(i, i + CHUNK_SIZE);
+      console.log(`[Comments API] Processing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(limitedComments.length / CHUNK_SIZE)}`);
+
+      let chunkResults: Awaited<ReturnType<typeof classifyComments>> = [];
+      try {
+        chunkResults = await classifyComments(
+          chunk.map((comment) => ({
+            id: comment.id,
+            text: comment.text,
+            author: comment.author,
+            timestamp: comment.timestamp,
+          }))
+        );
+      } catch (error) {
+        console.error(`[Comments API] Chunk ${i / CHUNK_SIZE + 1} classification failed`, error);
+      }
+
+      for (const comment of chunk) {
+        const classification = chunkResults.find((result) => result.id === comment.id);
+        classifiedComments.push({
+          ...comment,
+          category: classification?.category || 'neutral',
+          sentiment: classification?.sentiment ?? 0,
+          toxicity: classification?.toxicity ?? 0,
+          reasoning: classification?.reasoning,
+        });
+      }
+
+      const partialRefreshedAt = new Date();
+      const partialExpiresAt = new Date(Date.now() + (COMMENT_TTL_MINUTES[timeRange] || 60) * 60 * 1000);
+
+      await CommentAnalysis.findOneAndUpdate(
+        cacheFilter,
+        {
+          userId: user._id,
+          platform,
+          timeRange,
+          comments: classifiedComments,
+          summary: null,
+          refreshedAt: partialRefreshedAt,
+          expiresAt: partialExpiresAt,
+        },
+        { upsert: true }
       );
-    } catch (error) {
-      console.error('Comment classification failed, defaulting to neutral classifications', error);
+      console.log(`[Comments API] Saved ${classifiedComments.length} classified comments to cache`);
     }
 
-    const classifiedComments: ClassifiedCommentPayload[] = limitedComments.map((comment) => {
-      const classification = classificationResults.find((result) => result.id === comment.id);
-      return {
-        ...comment,
-        category: classification?.category || 'neutral',
-        sentiment: classification?.sentiment ?? 0,
-        toxicity: classification?.toxicity ?? 0,
-        reasoning: classification?.reasoning,
-      };
-    });
-
+    console.log('[Comments API] Generating summary...');
     const summary = await generateCommentSummary(
       classifiedComments.map((comment) => ({
         text: comment.text,
@@ -445,6 +473,7 @@ export async function GET(request: NextRequest) {
       },
       { upsert: true }
     );
+    console.log('[Comments API] Final save complete with summary');
 
     return NextResponse.json({
       success: true,
@@ -577,8 +606,8 @@ async function gatherInstagramComments(
   const mediaWithComments: Array<{ media: InstagramMediaWithComments; comments: InstagramComment[] }> = [];
   let processedMediaCount = 0;
   for (const media of mediaList) {
-    if (processedMediaCount >= 30) {
-      console.log('[Instagram Comments] Reached media processing cap (30).');
+    if (processedMediaCount >= 20) {
+      console.log('[Instagram Comments] Reached media processing cap (20).');
       break;
     }
 
