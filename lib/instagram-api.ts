@@ -1,5 +1,7 @@
 // Instagram Graph API integration
 // Note: For publishing content, we need to use Facebook Graph API with Instagram Business Account
+import { videoProcessor } from './video-processor';
+
 const FACEBOOK_API_BASE = 'https://graph.facebook.com/v18.0';
 const INSTAGRAM_API_BASE = 'https://graph.instagram.com';
 
@@ -274,6 +276,17 @@ export class InstagramAPI {
     } = {}
   ): Promise<string> {
     try {
+      // Validate video format for Instagram before proceeding
+      console.log('Validating video format for Instagram container...');
+      const validation = await videoProcessor.validateForInstagram(videoUrl);
+      
+      if (!validation.valid) {
+        console.error('Video validation failed:', validation.errors);
+        throw new Error(`Video format incompatible with Instagram: ${validation.errors.join(', ')}. Please ensure: MP4 format, H.264 codec, vertical 9:16 aspect ratio, 3-60 seconds duration.`);
+      }
+      
+      console.log('Video validation passed - creating container');
+
       const {
         isReel = true,
         instagramAccountId: providedInstagramAccountId,
@@ -385,6 +398,17 @@ export class InstagramAPI {
     } = {}
   ): Promise<string> {
     try {
+      // Validate video format for Instagram before proceeding
+      console.log('Validating video format for Instagram...');
+      const validation = await videoProcessor.validateForInstagram(videoUrl);
+      
+      if (!validation.valid) {
+        console.error('Video validation failed:', validation.errors);
+        throw new Error(`Video format incompatible with Instagram: ${validation.errors.join(', ')}. Please ensure: MP4 format, H.264 codec, vertical 9:16 aspect ratio, 3-60 seconds duration.`);
+      }
+      
+      console.log('Video validation passed - proceeding with upload');
+
       const {
         isReel = true,
         instagramAccountId: providedInstagramAccountId,
