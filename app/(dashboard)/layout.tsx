@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Zap, Plus, User, Users, LogOut, Crown, PenTool, ChevronDown, FileText } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Zap, Plus, User, Users, LogOut, Crown, PenTool, ChevronDown, FileText, MessageSquare } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import ClientOnly from '@/components/client-only';
 import UserValidationWrapper from '@/components/user-validation-wrapper';
@@ -103,6 +103,13 @@ export default function DashboardLayout({
             >
               <BarChart3 className="h-5 w-5 mr-3" />
               Analytics
+            </Link>
+            <Link
+              href="/dashboard/comments"
+              className="flex items-center px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors mt-1"
+            >
+              <MessageSquare className="h-5 w-5 mr-3" />
+              Comment Analysis
             </Link>
             <Link
               href="/dashboard/settings"

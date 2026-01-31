@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink, PenTool, Eye, Heart, MessageCircle, Share2, ThumbsUp, Video, TrendingDown, ArrowUp, ArrowDown, Clock, Sparkles, Brain, Target, Zap, Lightbulb, TrendingUp as TrendingUpIcon, AlertTriangle, CheckCircle, Star, Wand2, Film, Image as ImageIcon, Layers, Award, Users2, Globe, MapPin, PieChart as PieChartIcon, BarChart as BarChartIcon, Calendar as CalendarIcon, Globe as GlobeIcon, FileText, ShoppingBag } from 'lucide-react';
+import { Calendar, BarChart3, Settings, Plus, Users, TrendingUp, User, LogOut, Instagram, Play, RefreshCw, ExternalLink, PenTool, Eye, Heart, MessageCircle, MessageSquare, Share2, ThumbsUp, Video, TrendingDown, ArrowUp, ArrowDown, Clock, Sparkles, Brain, Target, Zap, Lightbulb, TrendingUp as TrendingUpIcon, AlertTriangle, CheckCircle, Star, Wand2, Film, Image as ImageIcon, Layers, Award, Users2, Globe, MapPin, PieChart as PieChartIcon, BarChart as BarChartIcon, Calendar as CalendarIcon, Globe as GlobeIcon, FileText, ShoppingBag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { DashboardSkeleton, AnalyticsCardSkeleton } from '@/components/ui/skeleton';
 import { formatNumber, getRelativeTime } from '@/lib/utils';
@@ -2563,6 +2563,13 @@ export default function DashboardPage() {
                     >
                       <Wand2 className="w-4 h-4" />
                       AI Studio
+                    </Link>
+                    <Link
+                      href="/dashboard/comments"
+                      className="bg-gradient-to-r from-rose-50 to-red-50 hover:from-rose-100 hover:to-red-100 text-rose-700 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-center flex items-center justify-center gap-2 border border-rose-200"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Comment Analysis
                     </Link>
                     <button
                       onClick={handleRefreshAIInsights}
