@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { User, Camera, Save, Mail, Phone, Globe, Clock, Crown, CheckCircle, LogOut } from 'lucide-react';
+import { User, Camera, Save, Mail, Phone, Globe, Clock, Crown, CheckCircle, LogOut, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import CountryCodeSelector, { defaultCountry, countries } from '@/components/country-code-selector';
 
@@ -36,6 +36,10 @@ export default function ProfilePage() {
     lastLoginAt: '',
     createdAt: '',
   });
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [processingUpgrade, setProcessingUpgrade] = useState(false);
+
+  const isPro = profileData.subscriptionPlan?.toLowerCase() === 'pro';
 
   useEffect(() => {
     if (session?.user) {
@@ -124,6 +128,25 @@ export default function ProfilePage() {
     }
   };
 
+  const handleUpgradeClick = () => {
+    setShowUpgradeModal(true);
+  };
+
+  const handleConfirmUpgrade = () => {
+    setProcessingUpgrade(true);
+    setTimeout(() => {
+      setProfileData(prev => ({
+        ...prev,
+        subscriptionPlan: 'pro',
+        subscriptionStatus: 'active'
+      }));
+      setMessage('Payment successful! You are now a Pro member.');
+      setShowUpgradeModal(false);
+      setProcessingUpgrade(false);
+      setTimeout(() => setMessage(''), 4000);
+    }, 1500);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -136,6 +159,7 @@ export default function ProfilePage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
@@ -174,6 +198,61 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Subscription Banner */}
+        <div
+          className={`mb-8 rounded-2xl border shadow-sm overflow-hidden ${
+            isPro
+              ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 border-transparent text-white'
+              : 'bg-white border-indigo-100'
+          }`}
+        >
+          <div className="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide mb-3 bg-white/20 text-white">
+                <Crown className="h-4 w-4 mr-1" />
+                {isPro ? 'Premium Member' : 'Free Member'}
+              </div>
+              <h2 className={`text-xl font-semibold ${isPro ? 'text-white' : 'text-gray-900'}`}>
+                {isPro
+                  ? 'Thanks for being a Pro creator!'
+                  : 'Unlock the full SocialOS experience'}
+              </h2>
+              <p className={`mt-2 text-sm ${isPro ? 'text-white/80' : 'text-gray-600'}`}>
+                {isPro
+                  ? 'You have unlimited scheduling, AI-powered captioning, auto-publishing across all platforms and priority support.'
+                  : 'Upgrade to Pro for ₹149/month to unlock unlimited scheduling, multi-platform auto-publishing, AI caption studio, analytics exports and priority support.'}
+              </p>
+            </div>
+
+            {isPro ? (
+              <div className="flex items-center space-x-4 text-sm">
+                <div className="flex flex-col text-left">
+                  <span className="font-semibold">Plan Status</span>
+                  <span className="text-white/80">Active Pro subscription</span>
+                </div>
+                <div className="h-12 w-px bg-white/30 hidden md:block" />
+                <div className="flex flex-col text-left">
+                  <span className="font-semibold">Next Billing</span>
+                  <span className="text-white/80">View details in Billing</span>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleUpgradeClick}
+                className="group inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white shadow-[0_12px_35px_rgba(99,102,241,0.35)] hover:shadow-[0_18px_45px_rgba(99,102,241,0.45)] transition-all duration-300"
+              >
+                <span className="flex items-center">
+                  Upgrade to Pro
+                  <ArrowRight className="h-4 w-4 ml-2 transition-transform duration-300 group-hover:translate-x-1" />
+                </span>
+                <span className="ml-3 text-xs font-medium bg-white/20 px-2 py-1 rounded-full">
+                  ₹149 / month
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Picture & Basic Info */}
@@ -387,5 +466,62 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+
+    {/* Dummy Payment Modal */}
+    {showUpgradeModal && (
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Complete your upgrade</h3>
+            <button
+              onClick={() => !processingUpgrade && setShowUpgradeModal(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mb-6">
+            Dummy payment gateway — no real charges. Click confirm to simulate a successful payment and activate your Pro plan.
+          </p>
+
+          <div className="space-y-4 mb-6">
+            <div className="p-4 border rounded-lg">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Plan</span>
+                <span className="font-semibold text-gray-900">SocialOS Pro</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600 mt-2">
+                <span>Amount</span>
+                <span className="font-semibold text-gray-900">₹149 / month</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <input type="text" placeholder="Card Holder" className="col-span-2 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" placeholder="Card Number" className="col-span-2 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" placeholder="MM/YY" className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" placeholder="CVV" className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              disabled={processingUpgrade}
+              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmUpgrade}
+              disabled={processingUpgrade}
+              className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processingUpgrade ? 'Processing...' : 'Confirm Payment'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
